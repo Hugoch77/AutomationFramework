@@ -2,9 +2,9 @@
 
 <!-- Una o dos frases. Qué hace este PR y por qué. -->
 
-## Fase del plan
+## Alcance
 
-<!-- p.ej. Fase 1 — Núcleo del framework. Enlaza el DoD de docs/PLAN.md que cubre. -->
+<!-- Qué entra y, si ayuda a revisar, qué queda deliberadamente fuera. -->
 
 ## Checklist
 
@@ -12,8 +12,7 @@
 - [ ] `uv run mypy src` sin errores
 - [ ] `uv run pytest` en verde
 - [ ] Los cambios en `core/` **no** introducen imports de `engines/` ni de librerías de automatización
-- [ ] `PROGRESS.md` actualizado si cambia el estado de la fase o se toma una decisión nueva
-- [ ] Documentación actualizada si cambia el contrato público
+- [ ] `README.md` actualizado si cambia el contrato público o la estructura
 
 ## Cómo se probó
 

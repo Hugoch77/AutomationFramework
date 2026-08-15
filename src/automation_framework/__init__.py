@@ -1,7 +1,7 @@
 """Multi-engine automation framework.
 
 The package is layered so that test code never depends on a concrete automation
-technology. See ``docs/ARCHITECTURE.md`` for the rationale.
+technology. See ``README.md`` for the rationale.
 
 Layers (dependencies always point downwards):
 

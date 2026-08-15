@@ -36,6 +36,14 @@ allure-results/
 allure-report/
 playwright-report/
 
+# --- Documentación y tooling de trabajo local (no se versiona) ---
+# Planificación, seguimiento de sesiones y configuración del asistente. Viven sólo en la
+# máquina de desarrollo; el repositorio guarda código, tests y configuración del proyecto.
+.claude/
+CLAUDE.md
+PROGRESS.md
+docs/
+
 # --- IDE / SO ---
 .vscode/*
 !.vscode/settings.json
