@@ -7,11 +7,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 El usuario trabaja en **español**: responde, documenta y escribe mensajes de commit en español.
 El **código, los identificadores, los nombres de archivo y los docstrings van en inglés**.
 
-## Lo primero de cada sesión
+## Reglas de operación — leer antes que nada
 
-Lee [`PROGRESS.md`](PROGRESS.md) **antes de tocar nada**. Contiene la fase activa, las decisiones
-ya cerradas, los pendientes y la bitácora de sesiones. Al terminar la sesión, actualízalo.
-La skill `/af-session` automatiza ambos extremos.
+### 1. El usuario controla el versionado. Tú no commiteas.
+
+**Nunca ejecutes `git commit`, `git push`, `git merge`, `gh pr create` ni `gh pr merge`**, aunque
+el trabajo esté terminado, aunque el gate esté verde, aunque parezca el paso obvio.
+El usuario revisa personalmente los cambios en VS Code y hace sus propios commits y pushes.
+
+- Deja siempre los cambios **en el working tree** y resume qué archivos tocaste y por qué.
+- Si te sirve, **ofrece el mensaje de commit como texto** para que él lo copie. No lo ejecutes.
+- Tampoco cambies de rama por tu cuenta: propón `git switch -c ...` y espera confirmación.
+- Única excepción: que el usuario lo pida explícitamente **en ese momento**. Una autorización
+  puntual no se extiende a los commits siguientes.
+- Comandos de **lectura** de git (`status`, `log`, `diff`, `branch`) son libres y recomendables.
+
+### 2. No arranques la sesión leyendo el proyecto.
+
+**No hagas ritual de orientación al empezar una sesión.** No leas `PROGRESS.md`, ni recorras el
+repositorio, ni resumas el estado por iniciativa propia. Responde a lo que el usuario pida.
+
+La revisión de estado se hace **sólo** cuando el usuario escribe **`/continuar`**, que invoca la
+skill del mismo nombre. Si la tarea concreta que te piden necesita un dato de `PROGRESS.md`,
+consúltalo puntualmente — eso no es el ritual, es hacer el trabajo.
+
+---
+
+## Documentación del proyecto
 
 Jerarquía de documentos:
 - `PROGRESS.md` — estado vivo (cambia cada sesión)
@@ -81,18 +103,19 @@ Consecuencias prácticas:
 
 Se trabaja por fases (ver `docs/PLAN.md`). Una fase = una rama = un PR.
 
-```bash
-git switch -c fase-N-<slug>
-# ... incrementos pequeños, cada uno con sus tests ...
-# gate de calidad → /af-check
-gh pr create        # esperar CI verde
-# merge squash a main, luego actualizar PROGRESS.md
-```
+| Paso | Quién |
+|---|---|
+| Crear la rama `fase-N-<slug>` | Usuario (tú la propones) |
+| Implementar en incrementos pequeños, cada uno con sus tests | Claude |
+| Gate de calidad → `/af-check` | Claude |
+| Revisar los cambios en VS Code | Usuario |
+| `git commit`, `git push`, PR y merge | **Usuario, siempre** |
+| Actualizar `PROGRESS.md` → `/bitacora` | Claude |
 
 - **No avances de fase sin cumplir su DoD** (definido en `docs/PLAN.md`).
-- Commits en formato Conventional Commits: `feat(core): añade contrato Engine`.
+- Mensajes de commit sugeridos en formato Conventional Commits: `feat(core): añade contrato Engine`.
 - El usuario también edita manualmente desde VS Code: comprueba `git status` antes de editar,
-  puede haber cambios que no vengan de esta sesión.
+  puede haber cambios que no vengan de esta sesión y que no debes pisar.
 
 ## Convenciones de testing
 
@@ -114,10 +137,11 @@ gh pr create        # esperar CI verde
 
 ## Skills disponibles
 
-| Skill | Para qué |
-|---|---|
-| `/af-session` | Abrir o cerrar sesión: lee/actualiza `PROGRESS.md` |
-| `/af-phase` | Ejecutar una fase del plan de principio a fin, verificando su DoD |
-| `/af-check` | Gate de calidad local antes de commit/PR |
-| `/af-new-suite` | Scaffolding de una suite de pruebas nueva (web o desktop) |
-| `/af-new-engine` | Añadir un engine nuevo respetando los contratos del core |
+| Skill | Para qué | Quién la dispara |
+|---|---|---|
+| `/continuar` | Retomar el proyecto: lee `PROGRESS.md`, contrasta contra el repo real y propone objetivo | **Sólo el usuario**, nunca automático |
+| `/bitacora` | Cerrar sesión: actualiza `PROGRESS.md` con lo hecho, decisiones y próximo paso | Usuario o Claude al terminar |
+| `/af-phase` | Ejecutar una fase del plan de principio a fin, verificando su DoD | Usuario |
+| `/af-check` | Gate de calidad local antes de entregar cambios | Claude, libremente |
+| `/af-new-suite` | Scaffolding de una suite de pruebas nueva (web o desktop) | Usuario |
+| `/af-new-engine` | Añadir un engine nuevo respetando los contratos del core | Usuario |

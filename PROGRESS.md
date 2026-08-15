@@ -53,6 +53,10 @@ Decisiones cerradas que **no** deben re-litigarse sin una razón nueva.
 | 2026-08-14 | `.gitattributes` con `* text=auto eol=lf` | Sin esto, Git convierte a CRLF en Windows y el hook `mixed-line-ending` lo revierte a LF en cada commit → ruido infinito en los diffs |
 | 2026-08-14 | `ruff format` excluye `*.md` | Ruff 0.16 formatea bloques de código dentro de Markdown y rompe la alineación deliberada de los ejemplos de la documentación |
 | 2026-08-14 | Identidad de git configurada **a nivel de repo**, no global | La global estaba como `Copilot`; se corrigió sólo aquí para no alterar otros proyectos del usuario |
+| 2026-08-14 | **Claude nunca commitea ni hace push.** Deja los cambios en el working tree | El usuario revisa personalmente cada cambio en VS Code y controla el historial del repo |
+| 2026-08-14 | **Claude no lee el proyecto al arrancar una sesión.** Sólo con `/continuar` | Evita gastar contexto y tiempo en un ritual de orientación que el usuario no siempre necesita |
+| 2026-08-14 | Skill `af-session` dividida en `/continuar` (apertura) y `/bitacora` (cierre) | Ahora tienen disparadores distintos: la apertura la pide el usuario explícitamente, el cierre no |
+| 2026-08-14 | Nombre `/continuar` en vez de `/continue` | `claude --continue` existe como flag de la CLI; el nombre en español elimina el riesgo de colisión |
 
 ---
 
@@ -73,6 +77,12 @@ Lo primero de la lista es lo próximo que se hace.
 ## Puntos clave a recordar
 
 Contexto que **no** se deduce leyendo el código:
+
+- ⚠️ **Regla dura: Claude no ejecuta `git commit`, `git push` ni `gh pr create`.** Deja los cambios
+  en el working tree y resume qué tocó. El usuario revisa en VS Code y commitea él mismo. Una
+  autorización puntual no se extiende a los commits siguientes.
+- ⚠️ **Regla dura: al iniciar sesión, Claude no lee el proyecto por iniciativa propia.** La revisión
+  de estado sólo ocurre con `/continuar`.
 
 - El objetivo real es **el framework**, no las pruebas. Microsoft Store y la web pública son
   casos de validación para demostrar que la abstracción funciona con dos tecnologías distintas.
@@ -123,3 +133,25 @@ Entrada nueva al final. Mantener las últimas ~10; archivar el resto en `docs/se
 
 **Próximo paso:** `git switch -c fase-1-core` y empezar por `Locator` + `Element` (en ese orden:
 `Element` depende de `Locator`, y `Engine` depende de ambos).
+
+---
+
+### Sesión 1 (continuación) — 2026-08-14
+**Objetivo:** ajustar el flujo de trabajo según dos reglas nuevas del usuario.
+
+**Hecho:**
+- Skill `af-session` eliminada y dividida en dos con disparadores distintos:
+  - `/continuar` — apertura de sesión, **sólo bajo petición explícita del usuario**.
+  - `/bitacora` — cierre de sesión y registro del avance.
+- Regla "Claude no commitea" propagada a `CLAUDE.md`, `/af-phase`, `/bitacora` y `/continuar`.
+- `CLAUDE.md` reestructurado: las dos reglas de operación van ahora al principio del documento,
+  antes de cualquier detalle técnico, y el flujo de trabajo indica quién hace cada paso.
+
+**Estado del repo:** cambios **sin commitear** en el working tree, a la espera de que el usuario
+los revise en VS Code. Archivos tocados: `CLAUDE.md`, `PROGRESS.md`,
+`.claude/skills/{continuar,bitacora}/SKILL.md` (nuevos),
+`.claude/skills/af-phase/SKILL.md` (modificado), `.claude/skills/af-session/` (eliminada).
+
+**Bloqueos:** ninguno.
+
+**Próximo paso:** sin cambios — Fase 1, empezando por `Locator` + `Element`.

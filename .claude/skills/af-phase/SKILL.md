@@ -10,7 +10,8 @@ description: Ejecutar una fase completa del roadmap de AutomationFramework de pr
 1. Lee `PROGRESS.md` para confirmar cuál es la fase activa y si la anterior está realmente cerrada.
 2. Lee **sólo la sección de esa fase** en `docs/PLAN.md`: objetivo, checklist y DoD.
 3. **Si la fase anterior no cumple su DoD, no arranques.** Dilo y propone cerrarla primero.
-4. Crea la rama: `git switch -c fase-N-<slug>`.
+4. **Propón** la rama (`fase-N-<slug>`) y espera confirmación del usuario antes de crearla.
+   El usuario gestiona el control de versiones; no cambies de rama por tu cuenta.
 
 ## 2. Planificación del incremento
 
@@ -48,10 +49,14 @@ o (b) moverlo explícitamente a otra fase con justificación. Nunca lo des por b
 
 ## 5. Cierre
 
-1. `gh pr create` con descripción que enlace el DoD cubierto.
-2. Espera a que CI esté verde: `gh pr checks --watch`.
-3. Tras el merge, ejecuta `/af-session` en modo cierre para actualizar `PROGRESS.md`
-   y marcar el DoD en `docs/PLAN.md`.
+> **El usuario hace personalmente todos los commits y pushes.** No ejecutes `git commit`,
+> `git push` ni `gh pr create` salvo que te lo pida de forma explícita en ese momento.
+
+1. Deja los cambios en el working tree y presenta un resumen de qué archivos se tocaron y por qué,
+   para que el usuario los revise en VS Code.
+2. Si el usuario lo pide, propón el mensaje de commit (Conventional Commits) y la descripción del
+   PR enlazando el DoD cubierto — como **texto para que él lo use**, no ejecutándolo.
+3. Ejecuta `/bitacora` para actualizar `PROGRESS.md` y marcar el DoD en `docs/PLAN.md`.
 
 ## Cuando la fase se desvía
 
