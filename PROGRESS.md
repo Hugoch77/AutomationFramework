@@ -10,12 +10,12 @@
 | Campo | Valor |
 |---|---|
 | **Fase activa** | Fase 1 — Núcleo del framework (`core/`) |
-| **Estado de la fase** | ✅ Completada (DoD verificado) |
+| **Estado de la fase** | ✅ DoD verificado · PR [#1](https://github.com/Hugoch77/AutomationFramework/pull/1) abierto, pendiente de merge |
 | **Siguiente fase** | Fase 2 — Engine Web (Playwright) |
-| **Rama actual** | `main` (pendiente crear `fase-1-core`) |
+| **Rama actual** | `fase-1-core` |
 | **Repositorio** | https://github.com/Hugoch77/AutomationFramework (privado) |
 | **CI** | ✅ Verde (`ci.yml`: lint + mypy + unit/arch) |
-| **Última actualización** | 2026-08-14 |
+| **Última actualización** | 2026-08-15 |
 | **Última sesión** | Sesión 1 |
 
 ---
@@ -25,7 +25,7 @@
 | Fase | Nombre | Estado | PR |
 |---|---|---|---|
 | 0 | Bootstrap del proyecto | ✅ Completada | — (commit directo) |
-| 1 | Núcleo del framework (`core/`) | ✅ Completada | pendiente |
+| 1 | Núcleo del framework (`core/`) | 🟡 En revisión | [#1](https://github.com/Hugoch77/AutomationFramework/pull/1) |
 | 2 | Engine Web (Playwright) | ⬜ Pendiente | — |
 | 3 | Page Object Model y utilidades | ⬜ Pendiente | — |
 | 4 | Reporting y observabilidad | ⬜ Pendiente | — |

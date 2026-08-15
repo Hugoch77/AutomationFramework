@@ -86,9 +86,24 @@ class TestNameNormalisation:
 
         assert available_engines() == ("web",)
 
-    def test_an_empty_name_is_rejected(self):
+    @pytest.mark.parametrize("empty", ["", "   ", "\t"])
+    def test_registering_an_empty_name_is_rejected(self, empty):
         with pytest.raises(ValueError, match="no puede estar vacío"):
-            register_engine("   ", FakeEngine)
+            register_engine(empty, FakeEngine)
+
+    @pytest.mark.parametrize("empty", ["", "   ", "\t"])
+    def test_creating_from_an_empty_name_is_rejected_the_same_way(self, empty):
+        """Otherwise it surfaces as "no engine registered as ''", which sends the reader
+        looking for a missing import instead of at the empty string they passed."""
+        register_engine("web", FakeEngine)
+
+        with pytest.raises(ValueError, match="no puede estar vacío"):
+            create_engine(empty)
+
+    def test_the_harmless_operations_stay_harmless(self):
+        """A predicate and an idempotent removal have no business raising."""
+        assert is_registered("") is False
+        unregister_engine("")
 
 
 class TestCollisions:

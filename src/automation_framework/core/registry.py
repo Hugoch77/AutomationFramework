@@ -37,6 +37,19 @@ def _normalise(name: str) -> str:
     return name.strip().lower()
 
 
+def _validated(name: str) -> str:
+    """Normalise ``name`` and reject it if nothing is left.
+
+    Used by the operations that take a name as a real argument. Without this, an empty name
+    reaches the registry lookup and comes back as "no engine registered as ''", which sends
+    the reader hunting for a missing import instead of at the empty string they passed.
+    """
+    key = _normalise(name)
+    if not key:
+        raise ValueError("El nombre de un engine no puede estar vacío.")
+    return key
+
+
 def register_engine(name: str, factory: EngineFactory, *, replace: bool = False) -> None:
     """Make ``factory`` available under ``name``.
 
@@ -50,9 +63,7 @@ def register_engine(name: str, factory: EngineFactory, *, replace: bool = False)
         ValueError: ``name`` is empty.
         EngineAlreadyRegisteredError: ``name`` is taken and ``replace`` is false.
     """
-    key = _normalise(name)
-    if not key:
-        raise ValueError("El nombre de un engine no puede estar vacío.")
+    key = _validated(name)
     if key in _REGISTRY and not replace:
         raise EngineAlreadyRegisteredError(key)
     _REGISTRY[key] = factory
@@ -86,11 +97,13 @@ def create_engine(name: str, **options: Any) -> Engine:
     """Build the engine registered as ``name``, passing ``options`` to its factory.
 
     Raises:
+        ValueError: ``name`` is empty. Same rule as :func:`register_engine`, so that an empty
+            name is never mistaken for a missing registration.
         EngineNotRegisteredError: Nobody registered that name. The message lists what is
             available, which is usually enough to spot the missing import.
         EngineError: The factory returned something that is not an engine.
     """
-    key = _normalise(name)
+    key = _validated(name)
     try:
         factory = _REGISTRY[key]
     except KeyError:
