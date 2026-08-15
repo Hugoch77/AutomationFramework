@@ -13,6 +13,8 @@
 | **Estado de la fase** | ✅ Completada |
 | **Siguiente fase** | Fase 1 — Núcleo del framework (`core/`) |
 | **Rama actual** | `main` |
+| **Repositorio** | https://github.com/Hugoch77/AutomationFramework (privado) |
+| **CI** | ✅ Verde (`ci.yml`: lint + mypy + unit/arch) |
 | **Última actualización** | 2026-08-14 |
 | **Última sesión** | Sesión 1 |
 
@@ -48,6 +50,9 @@ Decisiones cerradas que **no** deben re-litigarse sin una razón nueva.
 | 2026-08-14 | Gestor de paquetes = **uv** | Ya instalado, lockfile reproducible, mucho más rápido que pip |
 | 2026-08-14 | Layout **`src/`** | Evita imports accidentales desde el working dir |
 | 2026-08-14 | Docs y commits en **español**; código e identificadores en **inglés** | Preferencia del usuario + convención estándar de código |
+| 2026-08-14 | `.gitattributes` con `* text=auto eol=lf` | Sin esto, Git convierte a CRLF en Windows y el hook `mixed-line-ending` lo revierte a LF en cada commit → ruido infinito en los diffs |
+| 2026-08-14 | `ruff format` excluye `*.md` | Ruff 0.16 formatea bloques de código dentro de Markdown y rompe la alineación deliberada de los ejemplos de la documentación |
+| 2026-08-14 | Identidad de git configurada **a nivel de repo**, no global | La global estaba como `Copilot`; se corrigió sólo aquí para no alterar otros proyectos del usuario |
 
 ---
 
@@ -57,9 +62,11 @@ Lo primero de la lista es lo próximo que se hace.
 
 - [ ] **Fase 1** — Definir `Locator`, `Element`, `Engine` y el `EngineRegistry` en `core/`
 - [ ] **Fase 1** — `FakeEngine` en memoria para testear el core sin UI
-- [ ] **Fase 1** — Test de arquitectura que prohíba imports de engines dentro de `core/`
-- [ ] Elegir el sitio web público de práctica para la suite de la Fase 3
-- [ ] Verificar que `pywinauto` instala correctamente en Python 3.13 (spike corto, antes de Fase 5)
+- [x] ~~Test de arquitectura que prohíba imports de engines dentro de `core/`~~ — ya escrito en
+      `tests/arch/test_layering.py`; se auto-omite (skip) hasta que exista `core/`
+- [ ] Elegir el sitio web público de práctica para la suite de la Fase 3 (candidatos:
+      `saucedemo.com`, `the-internet.herokuapp.com`, `practicesoftwaretesting.com`)
+- [ ] Decidir en Fase 4 entre Allure y pytest-html para el reporting
 
 ---
 
@@ -76,7 +83,15 @@ Contexto que **no** se deduce leyendo el código:
 - Las pruebas de escritorio necesitan **sesión de Windows interactiva y desbloqueada**. No pueden
   correr con la pantalla bloqueada ni como servicio en sesión 0.
 - El `git config --global user.name` estaba como `Copilot`; se corrigió a la identidad del usuario
-  en la Fase 0 a nivel de repositorio.
+  **sólo a nivel de este repositorio** (la global sigue igual, para no afectar otros proyectos).
+- ✅ **Riesgo descartado:** `pywinauto 0.6.9` instala y resuelve correctamente en Python 3.13.14
+  (verificado en la Sesión 1). El riesgo pendiente de la Fase 5 es la *calidad del árbol UIA*
+  que exponga Microsoft Store, no la compatibilidad de la librería.
+- El CI emite dos anotaciones benignas que **no** son fallos: `upload-artifact@v5` aún apunta a
+  Node 20 (limitación upstream) y una carrera de caché entre los dos jobs paralelos de uv.
+  No tocar salvo que se vuelvan bloqueantes.
+- La suite `desktop` está excluida por defecto vía `addopts = ["-m", "not desktop"]` en
+  `pyproject.toml`. Hay que pedirla con `-m desktop`.
 
 ---
 
@@ -94,9 +109,17 @@ Entrada nueva al final. Mantener las últimas ~10; archivar el resto en `docs/se
 - Scaffolding de Fase 0: `pyproject.toml` (uv), estructura `src/` layout, ruff, mypy, pytest,
   pre-commit, `.gitignore`, PR template.
 - Creadas 5 skills de Claude Code en `.claude/skills/`.
-- Repo git inicializado, repo privado creado en GitHub y primer push.
-- Workflow `ci.yml` (lint + mypy + unit tests) en verde.
+- Repo git inicializado, repo privado creado en GitHub y primer push (2 commits).
+- Workflow `ci.yml` (lint + mypy + unit/arch) en verde en el primer intento.
+
+**Verificado con ejecución real:**
+- `uv sync --all-extras` → OK. Playwright 1.62.0, **pywinauto 0.6.9 en Python 3.13.14**.
+- `ruff check` → 0 problemas · `ruff format --check` → OK · `mypy src` → 0 errores.
+- `pytest tests/unit tests/arch` → 2 pasados, 2 omitidos (los de arquitectura esperan a `core/`).
+- `pre-commit run --all-files` → los 10 hooks en verde; hook instalado en `.git/hooks`.
+- CI en GitHub Actions → ambos jobs verdes.
 
 **Bloqueos:** ninguno.
 
-**Próximo paso:** abrir rama `fase-1-core` y empezar por `Locator` + `Element`.
+**Próximo paso:** `git switch -c fase-1-core` y empezar por `Locator` + `Element` (en ese orden:
+`Element` depende de `Locator`, y `Engine` depende de ambos).
