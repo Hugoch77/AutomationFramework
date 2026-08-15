@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from automation_framework.core.capabilities import Capabilities, Feature
 from automation_framework.core.element import Element
 from automation_framework.core.engine import Engine
+from automation_framework.core.exceptions import ElementError
 from automation_framework.core.locator import Strategy
 
 if TYPE_CHECKING:
@@ -43,6 +44,13 @@ class FakeNode:
     text: str = ""
     visible: bool = True
     attributes: dict[str, str] = field(default_factory=dict)
+
+    value: str = ""
+    """Current editable content, the equivalent of what a user typed into a field."""
+
+    editable: bool = True
+    """Whether the node has a value at all. Set to False to model a non-field element."""
+
     appear_after: int = 0
     """Number of lookups to answer "not there yet" before the node starts existing.
 
@@ -93,6 +101,17 @@ class FakeElement(Element):
         node = self._existing_node()
         return node.attributes.get(name) if node else None
 
+    def _value(self) -> str:
+        node = self._existing_node()
+        if node is None:
+            return ""
+        if not node.editable:
+            raise ElementError(
+                f"El elemento {self._locator} no tiene un valor editable; "
+                "¿querías text() o attribute()?"
+            )
+        return node.value
+
     def _click(self) -> None:
         self._engine.record("click", self._locator)
 
@@ -100,7 +119,7 @@ class FakeElement(Element):
         self._engine.record("fill", self._locator, text)
         node = self._node()
         if node is not None:
-            node.attributes["value"] = text
+            node.value = text
 
 
 class FakeEngine(Engine):
@@ -130,6 +149,8 @@ class FakeEngine(Engine):
         text: str = "",
         visible: bool = True,
         attributes: dict[str, str] | None = None,
+        value: str = "",
+        editable: bool = True,
         appear_after: int = 0,
     ) -> FakeNode:
         """Script an element into the fake application and return it."""
@@ -137,6 +158,8 @@ class FakeEngine(Engine):
             text=text,
             visible=visible,
             attributes=dict(attributes or {}),
+            value=value,
+            editable=editable,
             appear_after=appear_after,
         )
         self.nodes.setdefault(locator, []).append(node)

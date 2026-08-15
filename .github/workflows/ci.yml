@@ -52,13 +52,19 @@ jobs:
       - name: Instalar dependencias
         run: uv sync --extra web
 
+      # `coverage run -m pytest`, no `pytest --cov`: el plugin de este paquete se registra
+      # por entry point `pytest11`, así que pytest lo importa —y con él todo el paquete—
+      # antes de que pytest-cov empiece a medir. El código a nivel de módulo se ejecutaría
+      # sin instrumentar y la cobertura saldría falsamente baja.
       - name: Pytest (unit + arch)
         run: >
-          uv run pytest tests/unit tests/arch
-          --cov=automation_framework
-          --cov-report=term-missing
-          --cov-report=xml
+          uv run coverage run -m pytest tests/unit tests/arch
           --junitxml=reports/junit-unit.xml
+
+      - name: Informe de cobertura
+        run: |
+          uv run coverage report --show-missing
+          uv run coverage xml
 
       - name: Publicar resultados
         if: always()
@@ -69,5 +75,76 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  # La suite web e2e se activa en la Fase 2, cuando exista el PlaywrightEngine.
+  web:
+    name: Suite web (local)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Instalar dependencias
+        run: uv sync --extra web
+
+      # La versión del navegador va en la clave: al actualizar Playwright, la caché
+      # antigua no se reutiliza y evitamos un navegador incompatible.
+      - name: Caché de navegadores
+        uses: actions/cache@v4
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+
+      - name: Instalar Chromium
+        if: steps.browsers.outputs.cache-hit != 'true'
+        run: uv run playwright install --with-deps chromium
+
+      - name: Dependencias del sistema
+        if: steps.browsers.outputs.cache-hit == 'true'
+        run: uv run playwright install-deps chromium
+
+      # Se excluye `external`: esos tests dependen de un sitio de terceros y tiene su
+      # propio job, que no bloquea.
+      - name: Pytest (web contra páginas locales)
+        run: >
+          uv run pytest -m "web and not external"
+          --junitxml=reports/junit-web.xml
+
+      - name: Publicar evidencia del fallo
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: evidencia-web
+          path: |
+            artifacts/
+            reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  external:
+    name: Smoke contra sitio público
+    runs-on: ubuntu-latest
+    # Informativo: si saucedemo.com está caído o cambia, no es culpa de este código y no
+    # debe bloquear un merge. Lo que sí bloquea es el job `web`, que no depende de nadie.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Instalar dependencias
+        run: uv sync --extra web
+
+      - name: Instalar Chromium
+        run: uv run playwright install --with-deps chromium
+
+      - name: Pytest (external)
+        run: uv run pytest -m external
+
   # La suite desktop vive en desktop.yml (self-hosted runner) y se activa en la Fase 6.

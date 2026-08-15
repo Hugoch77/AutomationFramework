@@ -34,7 +34,12 @@ class Strategy(StrEnum):
     """Visible text content. Brittle: it changes with locale and with copy edits."""
 
     NAME = "name"
-    """Accessible name on web, ``Name`` property on UI Automation."""
+    """The ``Name`` property in UI Automation.
+
+    Desktop-oriented despite the generic wording. The web engine does **not** support it:
+    on the web the equivalent is the accessible name, which is only addressable paired with
+    a role. Use :attr:`ROLE` with the ``name`` option, or :attr:`LABEL`.
+    """
 
     # Web-oriented.
     ROLE = "role"

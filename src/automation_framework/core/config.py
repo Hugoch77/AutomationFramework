@@ -41,6 +41,16 @@ class Timeouts(BaseModel):
     """Launching or attaching to the application under test."""
 
 
+class Viewport(BaseModel):
+    """Window size for engines that have one."""
+
+    width: int = Field(default=1280, gt=0)
+    height: int = Field(default=720, gt=0)
+
+    def as_tuple(self) -> tuple[int, int]:
+        return (self.width, self.height)
+
+
 class Settings(BaseSettings):
     """Everything the framework reads from the environment."""
 
@@ -57,6 +67,27 @@ class Settings(BaseSettings):
 
     headless: bool = True
     """Run without a visible UI where the engine supports it. CI needs this on."""
+
+    browser: str = "chromium"
+    """Which browser the web engine drives.
+
+    Deliberately not validated here: the list of valid browsers is Playwright's knowledge,
+    and `core` does not get to know that Playwright exists. The web engine validates it and
+    raises `ConfigurationError` with the actual options.
+    """
+
+    viewport: Viewport = Field(default_factory=Viewport)
+
+    test_id_attribute: str = "data-testid"
+    """Which attribute :attr:`Strategy.TEST_ID` reads.
+
+    Configurable because real applications rarely use the default: `data-test`, `data-qa` and
+    `data-cy` are all common. Without this, the most robust strategy would be unusable on most
+    apps and suites would fall back to brittle CSS.
+    """
+
+    trace: bool = False
+    """Record an engine trace. Off by default — it costs time and disk on every test."""
 
     base_url: str | None = None
     """Root URL for web suites. Page objects build their paths from it."""

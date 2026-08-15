@@ -27,6 +27,11 @@ dev = [
     "pre-commit>=4.1",
 ]
 
+# Registra el plugin de pytest al instalar el paquete: las suites no necesitan un
+# conftest.py sólo para cablearlo.
+[project.entry-points.pytest11]
+automation_framework = "automation_framework.fixtures.plugin"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -56,6 +61,8 @@ markers = [
     "desktop: pruebas end-to-end sobre una app de escritorio Windows (requiere sesión interactiva)",
     "smoke: subconjunto crítico, debe pasar siempre",
     "slow: tarda más de ~10s",
+    "external: depende de un sitio de terceros; puede fallar por causas ajenas al código",
+    "af_config(**ajustes): sobrescribe la configuración del engine para ese test",
 ]
 log_cli_level = "INFO"
 filterwarnings = ["error"]
