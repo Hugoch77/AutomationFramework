@@ -13,6 +13,7 @@ strategy?" — those checks live here and run for everyone.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from contextlib import suppress
 from typing import TYPE_CHECKING, Self
 
 from automation_framework.core.capabilities import Feature
@@ -93,7 +94,12 @@ class Engine(ABC):
 
     @abstractmethod
     def _stop(self) -> None:
-        """Release every resource. Must tolerate a partially started engine."""
+        """Release every resource. Must tolerate a partially started engine.
+
+        Called both on a normal :meth:`stop` and after :meth:`_start` raises, so it has to
+        cope with any subset of the resources existing, and should not assume its own
+        bookkeeping ever ran.
+        """
 
     @abstractmethod
     def _find(self, locator: Locator) -> Element:
@@ -115,6 +121,11 @@ class Engine(ABC):
     def start(self) -> Self:
         """Launch the application. Returns ``self`` so it chains.
 
+        A failed start cleans up after itself. Launching is a multi-step affair for every
+        technology — driver, then application, then a window — and a failure halfway through
+        leaves live processes that nobody will ever close, because the caller never got an
+        engine to call ``stop()`` on. That is why :meth:`_stop` must tolerate a partial start.
+
         Raises:
             EngineError: Already started. Almost always a fixture-scope mistake, so it is
                 reported rather than silently ignored.
@@ -124,7 +135,14 @@ class Engine(ABC):
                 f"El engine {self.name!r} ya está arrancado. "
                 "Revisa el scope de la fixture: probablemente se está arrancando dos veces."
             )
-        self._start()
+        try:
+            self._start()
+        except Exception:
+            # Un fallo limpiando es ruido comparado con el fallo de arranque, que es el que
+            # explica qué pasó. Se descarta para no sustituir la causa real por otra peor.
+            with suppress(Exception):
+                self._stop()
+            raise
         self._started = True
         return self
 

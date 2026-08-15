@@ -14,12 +14,13 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from automation_framework.core.config import load_settings
+from automation_framework.core.exceptions import ConfigurationError
 from automation_framework.core.log import bound_context, configure_logging, get_logger
 from automation_framework.core.registry import create_engine
 from automation_framework.engines import load_available
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterator
+    from collections.abc import Generator, Iterator, Mapping
     from pathlib import Path
 
     from automation_framework.core.config import Settings
@@ -89,6 +90,33 @@ def settings(request: pytest.FixtureRequest) -> Settings:
     return resolved
 
 
+def apply_overrides(settings: Settings, overrides: Mapping[str, Any]) -> Settings:
+    """Merge ``@pytest.mark.af_config(...)`` values onto ``settings``, revalidating.
+
+    Not `model_copy(update=...)`: pydantic v2 applies that update **without validating it**,
+    so `af_config(headles=False)` attaches a brand-new attribute, leaves the real `headless`
+    untouched and the test runs looking configured when it is not. Same failure mode as
+    `AF_HEADLES` in the environment, and the same answer as `core.config` gives it — reject
+    the unknown name loudly rather than ignore it.
+
+    Rebuilding through `load_settings` also revalidates the *values*, so `af_config(browser=1)`
+    or a negative timeout fail here instead of somewhere inside the engine.
+
+    Raises:
+        ConfigurationError: An override names no setting, or its value is invalid.
+    """
+    if not overrides:
+        return settings
+
+    known = set(type(settings).model_fields)
+    if unknown := sorted(set(overrides) - known):
+        raise ConfigurationError(
+            f"Ajustes desconocidos en @pytest.mark.af_config: {', '.join(unknown)}. "
+            f"Válidos: {', '.join(sorted(known))}."
+        )
+    return load_settings(**{**settings.model_dump(), **overrides})
+
+
 @pytest.fixture(scope="session")
 def artifacts_dir(settings: Settings) -> Path:
     """Directory for screenshots, traces and reports."""
@@ -109,7 +137,7 @@ def engine(
     load_available()
 
     marker = request.node.get_closest_marker("af_config")
-    resolved = settings.model_copy(update=dict(marker.kwargs)) if marker else settings
+    resolved = apply_overrides(settings, marker.kwargs) if marker else settings
 
     instance = create_engine(
         resolved.engine,

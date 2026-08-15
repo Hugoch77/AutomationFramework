@@ -66,6 +66,20 @@ class WebElement(Element):
             self._resolved = to_playwright(self._page, self._locator).nth(self._index)
         return self._resolved
 
+    def _failure(self, operation: str, error: PlaywrightError) -> ElementError:
+        """Turn a Playwright error into a framework one.
+
+        A timeout means "it never showed up" and has its own exception. Everything else is a
+        genuine failure of the operation — a navigation invalidating the execution context, a
+        detached node, a closed page — and it must not reach a test as a Playwright type, or
+        suites would start writing `except PlaywrightError` and the abstraction would be over.
+
+        Only the first line of the message survives: Playwright appends a full call log that
+        buries the actual cause under its retry history.
+        """
+        detail = next(iter(str(error).splitlines()), "") or type(error).__name__
+        return ElementError(f"Falló {operation} sobre el elemento {self._locator}: {detail}")
+
     # ------------------------------------------------------------------ consultas ---
 
     def _exists(self) -> bool:
@@ -87,12 +101,16 @@ class WebElement(Element):
             return self._target.inner_text(timeout=self._query_ms)
         except PlaywrightTimeoutError as error:
             raise ElementNotFoundError(self._locator) from error
+        except PlaywrightError as error:
+            raise self._failure("la lectura del texto", error) from error
 
     def _attribute(self, name: str) -> str | None:
         try:
             return self._target.get_attribute(name, timeout=self._query_ms)
         except PlaywrightTimeoutError as error:
             raise ElementNotFoundError(self._locator) from error
+        except PlaywrightError as error:
+            raise self._failure(f"la lectura del atributo {name!r}", error) from error
 
     def _value(self) -> str:
         try:
@@ -116,9 +134,13 @@ class WebElement(Element):
             self._target.click(timeout=self._action_ms)
         except PlaywrightTimeoutError as error:
             raise ElementNotFoundError(self._locator, timeout=self._action_ms / 1000) from error
+        except PlaywrightError as error:
+            raise self._failure("el clic", error) from error
 
     def _fill(self, text: str) -> None:
         try:
             self._target.fill(text, timeout=self._action_ms)
         except PlaywrightTimeoutError as error:
             raise ElementNotFoundError(self._locator, timeout=self._action_ms / 1000) from error
+        except PlaywrightError as error:
+            raise self._failure("el rellenado", error) from error

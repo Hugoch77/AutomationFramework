@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
 from automation_framework.core.engine import Engine
@@ -116,8 +115,13 @@ class PlaywrightEngine(Engine):
     def _stop(self) -> None:
         """Close everything in reverse order, tolerating a partial start.
 
-        Teardown runs from a ``finally``; if it raised, it would mask the failure that
-        actually matters. Each step is therefore closed independently and logged on error.
+        Teardown runs from a ``finally`` — and now also from a failed `start()` — so if it
+        raised it would mask the failure that actually matters. Each step is closed
+        independently and logged on error.
+
+        The catch is deliberately `Exception` and not `PlaywrightError`: closing touches the
+        filesystem and a pipe to the driver process, so an `OSError` is just as possible as a
+        Playwright one, and it must not be the exception a test ends up reporting.
         """
         closers: list[tuple[str, Callable[[], None]]] = []
         if self._page is not None:
@@ -132,7 +136,7 @@ class PlaywrightEngine(Engine):
         for label, close in closers:
             try:
                 close()
-            except PlaywrightError as error:
+            except Exception as error:
                 log.warning("fallo cerrando recurso del engine", recurso=label, error=str(error))
 
         self._page = None

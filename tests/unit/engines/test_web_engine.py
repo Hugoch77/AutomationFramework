@@ -14,6 +14,21 @@ from automation_framework.engines.web import PlaywrightEngine
 pytestmark = pytest.mark.unit
 
 
+class _FailingResource:
+    """A Playwright handle whose `close()` fails with something Playwright never raises."""
+
+    def close(self) -> None:
+        raise OSError("el proceso del driver ya no está")
+
+
+class _RecordingResource:
+    def __init__(self) -> None:
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+
+
 class TestConstruction:
     @pytest.mark.parametrize("browser", ["chromium", "firefox", "webkit"])
     def test_accepts_every_supported_browser(self, browser):
@@ -79,3 +94,25 @@ class TestTeardownRobustness:
     def test_save_trace_returns_none_when_tracing_was_off(self, tmp_path):
         """So a failure hook can call it unconditionally, without knowing the config."""
         assert PlaywrightEngine().save_trace(tmp_path / "traza.zip") is None
+
+    def test_closing_survives_a_non_playwright_error(self):
+        """Closing touches the filesystem and a pipe: an OSError is as likely as a
+        PlaywrightError, and neither may become the exception the test reports."""
+        engine = PlaywrightEngine()
+        engine._page = _FailingResource()
+        engine._browser = _FailingResource()
+
+        engine._stop()
+
+        assert engine._page is None
+        assert engine._browser is None
+
+    def test_every_resource_is_closed_even_if_an_earlier_one_fails(self):
+        """One broken handle must not strand the rest — that is how processes leak."""
+        engine = PlaywrightEngine()
+        engine._page = _FailingResource()
+        engine._browser = browser = _RecordingResource()
+
+        engine._stop()
+
+        assert browser.closed is True
