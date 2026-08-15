@@ -43,5 +43,6 @@ Si se completó una fase, marca también su DoD en `docs/PLAN.md`.
 Deja los cambios **en el working tree, sin commitear**. Avisa al usuario de qué archivos tocaste
 para que él los revise y decida el commit.
 
-> El usuario gestiona personalmente todos los commits y pushes. No ejecutes `git commit`,
-> `git push` ni `gh pr create` salvo que te lo pida de forma explícita en ese momento.
+> El usuario escribe la historia del repo. No ejecutes `git commit`, `git push`, `git merge`
+> ni `gh pr create` salvo que te lo pida de forma explícita en ese momento. Crear ramas y
+> moverte entre ellas sí está permitido.

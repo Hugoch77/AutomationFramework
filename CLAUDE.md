@@ -9,18 +9,23 @@ El **código, los identificadores, los nombres de archivo y los docstrings van e
 
 ## Reglas de operación — leer antes que nada
 
-### 1. El usuario controla el versionado. Tú no commiteas.
+### 1. El usuario escribe la historia del repo. Tú no.
 
-**Nunca ejecutes `git commit`, `git push`, `git merge`, `gh pr create` ni `gh pr merge`**, aunque
-el trabajo esté terminado, aunque el gate esté verde, aunque parezca el paso obvio.
-El usuario revisa personalmente los cambios en VS Code y hace sus propios commits y pushes.
+La frontera es **quién escribe commits**, no "git en general".
+
+**Prohibido** — escribe historia o publica: `git commit`, `git push`, `git merge`, `git rebase`,
+`git tag`, `gh pr create`, `gh pr merge`. Aunque el trabajo esté terminado, aunque el gate esté
+verde, aunque sea el paso obvio. El usuario revisa en VS Code y commitea él mismo.
+
+**Permitido** — no toca la historia: `git switch`, `git switch -c`, `git branch`, y toda
+la lectura (`status`, `log`, `diff`, `show`). Crea la rama de la fase tú mismo, sin preguntar.
 
 - Deja siempre los cambios **en el working tree** y resume qué archivos tocaste y por qué.
 - Si te sirve, **ofrece el mensaje de commit como texto** para que él lo copie. No lo ejecutes.
-- Tampoco cambies de rama por tu cuenta: propón `git switch -c ...` y espera confirmación.
-- Única excepción: que el usuario lo pida explícitamente **en ese momento**. Una autorización
-  puntual no se extiende a los commits siguientes.
-- Comandos de **lectura** de git (`status`, `log`, `diff`, `branch`) son libres y recomendables.
+- Al cambiar de rama, **dilo**: los cambios sin commitear se llevan consigo y eso sorprende
+  si no se ve venir.
+- Única excepción a lo prohibido: que el usuario lo pida explícitamente **en ese momento**.
+  Una autorización puntual no se extiende a los commits siguientes.
 
 ### 2. No arranques la sesión leyendo el proyecto.
 
@@ -105,7 +110,7 @@ Se trabaja por fases (ver `docs/PLAN.md`). Una fase = una rama = un PR.
 
 | Paso | Quién |
 |---|---|
-| Crear la rama `fase-N-<slug>` | Usuario (tú la propones) |
+| Crear la rama `fase-N-<slug>` | Claude, al arrancar la fase |
 | Implementar en incrementos pequeños, cada uno con sus tests | Claude |
 | Gate de calidad → `/af-check` | Claude |
 | Revisar los cambios en VS Code | Usuario |

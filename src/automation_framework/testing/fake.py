@@ -1,0 +1,171 @@
+"""An engine backed by a dictionary instead of an application.
+
+:class:`FakeEngine` exists to answer one question early: *are the core contracts actually
+implementable?* If writing this against ``Engine`` and ``Element`` feels awkward, the
+abstractions are wrong — and it is far cheaper to discover that here than halfway through
+wiring up Playwright.
+
+It also gives the framework's own tests something to drive that has no browser, no window
+and no timing: element states can be scripted (``appear_after``) so that waiting behaviour is
+covered deterministically.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+from automation_framework.core.capabilities import Capabilities, Feature
+from automation_framework.core.element import Element
+from automation_framework.core.engine import Engine
+from automation_framework.core.locator import Strategy
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from pathlib import Path
+
+    from automation_framework.core.locator import Locator
+
+FAKE_CAPABILITIES = Capabilities.of(
+    "fake",
+    # Acepta todas las estrategias a propósito: este engine no está para probar
+    # restricciones de capacidades, sino el resto del contrato. Los tests que necesitan
+    # un engine limitado se construyen uno a medida.
+    strategies=frozenset(Strategy),
+    features=frozenset({Feature.SCREENSHOT, Feature.MULTIPLE_WINDOWS, Feature.ELEMENT_TREE_DUMP}),
+)
+
+
+@dataclass
+class FakeNode:
+    """One scripted element in the fake application."""
+
+    text: str = ""
+    visible: bool = True
+    attributes: dict[str, str] = field(default_factory=dict)
+    appear_after: int = 0
+    """Number of lookups to answer "not there yet" before the node starts existing.
+
+    This is how waiting is tested without real time passing.
+    """
+
+    lookups: int = 0
+    """How many times this node has been queried. Useful for asserting on polling."""
+
+    def exists(self) -> bool:
+        """Answer whether the node is in the tree, honouring ``appear_after``."""
+        self.lookups += 1
+        return self.lookups > self.appear_after
+
+
+class FakeElement(Element):
+    """A handle into :class:`FakeEngine`'s dictionary."""
+
+    def __init__(self, engine: FakeEngine, locator: Locator, index: int = 0) -> None:
+        super().__init__(locator, timeout=engine.timeout, poll_interval=engine.poll_interval)
+        self._engine = engine
+        self._index = index
+
+    def _node(self) -> FakeNode | None:
+        nodes = self._engine.nodes.get(self._locator, [])
+        if self._index >= len(nodes):
+            return None
+        return nodes[self._index]
+
+    def _existing_node(self) -> FakeNode | None:
+        node = self._node()
+        if node is None or not node.exists():
+            return None
+        return node
+
+    def _exists(self) -> bool:
+        return self._existing_node() is not None
+
+    def _is_visible(self) -> bool:
+        node = self._existing_node()
+        return node is not None and node.visible
+
+    def _text(self) -> str:
+        node = self._existing_node()
+        return node.text if node else ""
+
+    def _attribute(self, name: str) -> str | None:
+        node = self._existing_node()
+        return node.attributes.get(name) if node else None
+
+    def _click(self) -> None:
+        self._engine.record("click", self._locator)
+
+    def _fill(self, text: str) -> None:
+        self._engine.record("fill", self._locator, text)
+        node = self._node()
+        if node is not None:
+            node.attributes["value"] = text
+
+
+class FakeEngine(Engine):
+    """An :class:`Engine` whose application under test is a dictionary.
+
+    Timeouts default to something small: a test that accidentally waits should fail fast
+    instead of stalling the suite for ten seconds.
+    """
+
+    def __init__(self, *, timeout: float = 1.0, poll_interval: float = 0.001) -> None:
+        super().__init__(timeout=timeout, poll_interval=poll_interval)
+        self.nodes: dict[Locator, list[FakeNode]] = {}
+        self.events: list[tuple[str, ...]] = []
+        self.start_count = 0
+        self.stop_count = 0
+
+    @property
+    def capabilities(self) -> Capabilities:
+        return FAKE_CAPABILITIES
+
+    # ---------------------------------------------------------- montaje del escenario ---
+
+    def add(
+        self,
+        locator: Locator,
+        *,
+        text: str = "",
+        visible: bool = True,
+        attributes: dict[str, str] | None = None,
+        appear_after: int = 0,
+    ) -> FakeNode:
+        """Script an element into the fake application and return it."""
+        node = FakeNode(
+            text=text,
+            visible=visible,
+            attributes=dict(attributes or {}),
+            appear_after=appear_after,
+        )
+        self.nodes.setdefault(locator, []).append(node)
+        return node
+
+    def remove(self, locator: Locator) -> None:
+        """Take every node registered under ``locator`` out of the tree."""
+        self.nodes.pop(locator, None)
+
+    def record(self, action: str, locator: Locator, *extra: str) -> None:
+        """Append an interaction to :attr:`events`, for tests to assert on."""
+        self.events.append((action, str(locator), *extra))
+
+    # ------------------------------------------------------------------- primitivas ---
+
+    def _start(self) -> None:
+        self.start_count += 1
+
+    def _stop(self) -> None:
+        self.stop_count += 1
+
+    def _find(self, locator: Locator) -> Element:
+        return FakeElement(self, locator)
+
+    def _find_all(self, locator: Locator) -> Sequence[Element]:
+        nodes = self.nodes.get(locator, [])
+        return [FakeElement(self, locator, index) for index in range(len(nodes))]
+
+    def _screenshot(self, path: Path) -> Path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"fake-screenshot")
+        return path
