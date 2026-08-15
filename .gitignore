@@ -1,0 +1,46 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# --- Entornos virtuales / uv ---
+.venv/
+venv/
+.python-version
+
+# --- Herramientas ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# --- Configuración local (nunca se commitea: puede llevar credenciales) ---
+.env
+.env.local
+*.local.toml
+
+# --- Artefactos de ejecución de pruebas ---
+artifacts/
+reports/
+screenshots/
+traces/
+videos/
+test-results/
+allure-results/
+allure-report/
+playwright-report/
+
+# --- IDE / SO ---
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/

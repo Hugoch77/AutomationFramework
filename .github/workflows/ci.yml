@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Un push nuevo cancela la ejecución anterior de la misma rama.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_FROZEN: "1"
+
+jobs:
+  quality:
+    name: Lint y tipos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Instalar dependencias
+        run: uv sync --extra web
+
+      - name: Ruff (lint)
+        run: uv run ruff check --output-format=github .
+
+      - name: Ruff (formato)
+        run: uv run ruff format --check .
+
+      - name: Mypy
+        run: uv run mypy src
+
+  unit:
+    name: Tests unitarios
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Instalar dependencias
+        run: uv sync --extra web
+
+      - name: Pytest (unit + arch)
+        run: >
+          uv run pytest tests/unit tests/arch
+          --cov=automation_framework
+          --cov-report=term-missing
+          --cov-report=xml
+          --junitxml=reports/junit-unit.xml
+
+      - name: Publicar resultados
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-unit
+          path: reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # La suite web e2e se activa en la Fase 2, cuando exista el PlaywrightEngine.
+  # La suite desktop vive en desktop.yml (self-hosted runner) y se activa en la Fase 6.

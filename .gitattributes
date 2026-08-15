@@ -1,0 +1,19 @@
+# Normaliza los finales de línea a LF en el repositorio y en el working tree.
+# Sin esto, Git convierte a CRLF en Windows y el hook `mixed-line-ending` de pre-commit
+# los revierte a LF en cada commit, generando ruido infinito en los diffs.
+* text=auto eol=lf
+
+# Binarios: nunca tocar.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.webm binary
+*.exe binary
+
+# Scripts que Windows debe poder ejecutar con CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
