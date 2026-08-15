@@ -124,5 +124,9 @@ exclude_lines = [
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
     "@(abc\\.)?abstractmethod",
-    "\\.\\.\\.",
+    # Cuerpos que son sólo `...`. Anclado a propósito: sin los anclas, el patrón casaba con
+    # cualquier línea que contuviera puntos suspensivos —por ejemplo la firma
+    # `ignored_exceptions: tuple[type[Exception], ...]`— y, al pertenecer a una sentencia
+    # `def`, coverage excluía la función ENTERA. Inflaba la cobertura en silencio.
+    "^\\s*\\.\\.\\.$",
 ]

@@ -94,18 +94,27 @@ el badge de CI está verde en GitHub.
 **Objetivo:** definir los contratos que hacen que el framework sea multi-engine. Es la fase más
 importante del proyecto: todo lo demás se apoya aquí.
 
-- [ ] `Locator` — descriptor unificado de elementos (`strategy` + `value` + hints por engine)
-- [ ] `Element` (ABC/Protocol) — `click`, `fill`, `text`, `is_visible`, `wait_for`, `attribute`
-- [ ] `Engine` (ABC/Protocol) — `start`, `stop`, `find`, `find_all`, `screenshot`, `capabilities`
-- [ ] `EngineRegistry` + factory — resolución por nombre (`"web"`, `"desktop"`) sin acoplar core
-- [ ] `Settings` con pydantic-settings — config por env vars + `.env` + defaults por engine
-- [ ] Excepciones tipadas (`ElementNotFoundError`, `EngineNotReadyError`, `TimeoutError`…)
-- [ ] Sistema de esperas explícitas (`wait_until`, políticas de reintento, timeouts por capa)
-- [ ] Logging estructurado con structlog, correlacionado por `test_id`
-- [ ] `FakeEngine` en memoria para poder testear el core sin navegador ni app
+- [x] `Locator` — descriptor unificado de elementos (`strategy` + `value` + hints por engine)
+- [x] `Element` (ABC) — `click`, `fill`, `text`, `is_visible`, `wait_for`, `attribute`
+- [x] `Engine` (ABC) — `start`, `stop`, `find`, `find_all`, `screenshot`, `capabilities`
+- [x] `EngineRegistry` + factory — resolución por nombre (`"web"`, `"desktop"`) sin acoplar core
+- [x] `Settings` con pydantic-settings — config por env vars + `.env` + defaults por engine
+- [x] Excepciones tipadas (`ElementNotFoundError`, `EngineNotStartedError`, `WaitTimeoutError`…)
+- [x] Sistema de esperas explícitas (`wait_until`, `wait_while`, timeouts por capa)
+- [x] Logging estructurado con structlog, correlacionado por `test_id`
+- [x] `FakeEngine` en memoria para poder testear el core sin navegador ni app
+- [x] `Capabilities` — no estaba en el plan; cada engine declara qué estrategias y features
+      soporta, y la clase base convierte un desajuste en un error preciso y temprano
 
-**DoD:** cobertura de `core/` ≥ 85% · **cero imports de playwright/pywinauto dentro de `core/`**
-(verificado por un test de arquitectura) · toda la API pública tipada y documentada.
+**DoD:** ✅ **Cumplida.**
+- Cobertura de `core/` ≥ 85% → **100%** (526 statements, 48 branches, 239 tests).
+- Cero imports de playwright/pywinauto dentro de `core/` → verificado por `tests/arch/test_layering.py`,
+  que parsea el AST (un grep daría falsos positivos: los docstrings sí nombran esas librerías).
+- API pública tipada y documentada → `mypy --strict` sin errores.
+
+**Decisiones de diseño tomadas durante la fase:** núcleo **síncrono** (pywinauto no es async),
+elementos **lazy** (modelo nativo de Playwright y pywinauto), contratos como **ABC** (un método
+olvidado falla al instanciar, y la clase base alberga la lógica compartida de espera).
 
 ---
 

@@ -22,10 +22,20 @@ repos:
         args: ["--fix"]
       - id: ruff-format
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.3.0
+  # mypy corre en el entorno del proyecto, no en uno aislado de pre-commit.
+  #
+  # El hook oficial (mirrors-mypy) crea su propio venv y obliga a repetir ahí cada
+  # dependencia en `additional_dependencies`. Esa lista se desincroniza de pyproject.toml a
+  # la primera: bastó con que faltara structlog para que el commit fallara con
+  # "Cannot find implementation or library stub". Con playwright y pywinauto por llegar
+  # —y siendo pywinauto solo-Windows— la duplicación no compensa.
+  - repo: local
     hooks:
       - id: mypy
-        args: ["--config-file=pyproject.toml"]
-        additional_dependencies: ["pydantic>=2.11", "pydantic-settings>=2.8"]
-        files: ^src/
+        name: mypy (entorno del proyecto)
+        entry: uv run mypy
+        language: system
+        types: [python]
+        # La configuración ya fija `files = ["src"]`; pasar nombres sueltos haría que
+        # mypy analizara módulos fuera de contexto y diera falsos positivos.
+        pass_filenames: false
