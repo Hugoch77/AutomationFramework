@@ -53,7 +53,7 @@ Decisiones cerradas que **no** deben re-litigarse sin una razón nueva.
 | 2026-08-14 | `.gitattributes` con `* text=auto eol=lf` | Sin esto, Git convierte a CRLF en Windows y el hook `mixed-line-ending` lo revierte a LF en cada commit → ruido infinito en los diffs |
 | 2026-08-14 | `ruff format` excluye `*.md` | Ruff 0.16 formatea bloques de código dentro de Markdown y rompe la alineación deliberada de los ejemplos de la documentación |
 | 2026-08-14 | Identidad de git configurada **a nivel de repo**, no global | La global estaba como `Copilot`; se corrigió sólo aquí para no alterar otros proyectos del usuario |
-| 2026-08-14 | **Claude nunca commitea ni hace push.** Deja los cambios en el working tree | El usuario revisa personalmente cada cambio en VS Code y controla el historial del repo |
+| 2026-08-14 | **Claude no escribe la historia del repo**: nada de `commit`, `push`, `merge`, `rebase`, `tag` ni PRs. Sí puede crear ramas y moverse entre ellas | El usuario revisa cada cambio en VS Code y controla el historial. Crear ramas no toca la historia, así que no necesita su intervención |
 | 2026-08-14 | **Claude no lee el proyecto al arrancar una sesión.** Sólo con `/continuar` | Evita gastar contexto y tiempo en un ritual de orientación que el usuario no siempre necesita |
 | 2026-08-14 | Skill `af-session` dividida en `/continuar` (apertura) y `/bitacora` (cierre) | Ahora tienen disparadores distintos: la apertura la pide el usuario explícitamente, el cierre no |
 | 2026-08-14 | Nombre `/continuar` en vez de `/continue` | `claude --continue` existe como flag de la CLI; el nombre en español elimina el riesgo de colisión |
@@ -89,9 +89,11 @@ Lo primero de la lista es lo próximo que se hace.
 
 Contexto que **no** se deduce leyendo el código:
 
-- ⚠️ **Regla dura: Claude no ejecuta `git commit`, `git push` ni `gh pr create`.** Deja los cambios
-  en el working tree y resume qué tocó. El usuario revisa en VS Code y commitea él mismo. Una
-  autorización puntual no se extiende a los commits siguientes.
+- ⚠️ **Regla dura: Claude no escribe la historia del repo.** Prohibido: `git commit`, `git push`,
+  `git merge`, `git rebase`, `git tag`, `gh pr create/merge`. Permitido: `git switch`,
+  `git switch -c`, `git branch` y toda la lectura. Deja los cambios en el working tree y resume
+  qué tocó; el usuario revisa en VS Code y commitea él mismo. Una autorización puntual no se
+  extiende a los commits siguientes.
 - ⚠️ **Regla dura: al iniciar sesión, Claude no lee el proyecto por iniciativa propia.** La revisión
   de estado sólo ocurre con `/continuar`.
 

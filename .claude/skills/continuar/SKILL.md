@@ -54,7 +54,9 @@ Termina proponiendo un objetivo concreto para la sesión y **espera confirmació
 ## 4. Lo que NO debes hacer
 
 - No arranques a implementar sin confirmación del objetivo.
-- No hagas `git commit`, `git push` ni `gh pr create`. El usuario gestiona el control de versiones.
+- No hagas `git commit`, `git push`, `git merge` ni `gh pr create`. El usuario escribe la historia
+  del repo. (Crear ramas y moverte entre ellas sí está permitido, pero no en modo apertura: aquí
+  sólo se orienta.)
 - No re-litigues decisiones ya registradas en la tabla **Decisiones tomadas** de `PROGRESS.md`,
   salvo que haya información nueva que las invalide.
 - No propongas saltar a una fase posterior si la actual no cumple su DoD.

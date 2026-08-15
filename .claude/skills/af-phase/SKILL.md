@@ -10,8 +10,9 @@ description: Ejecutar una fase completa del roadmap de AutomationFramework de pr
 1. Lee `PROGRESS.md` para confirmar cuál es la fase activa y si la anterior está realmente cerrada.
 2. Lee **sólo la sección de esa fase** en `docs/PLAN.md`: objetivo, checklist y DoD.
 3. **Si la fase anterior no cumple su DoD, no arranques.** Dilo y propone cerrarla primero.
-4. **Propón** la rama (`fase-N-<slug>`) y espera confirmación del usuario antes de crearla.
-   El usuario gestiona el control de versiones; no cambies de rama por tu cuenta.
+4. Crea la rama tú mismo: `git switch -c fase-N-<slug>`. No hace falta preguntar — crear ramas
+   y moverse entre ellas está permitido; lo que no puedes es commitear, hacer push ni abrir PRs.
+   Avisa de que has cambiado de rama, porque los cambios sin commitear se van contigo.
 
 ## 2. Planificación del incremento
 
@@ -49,8 +50,9 @@ o (b) moverlo explícitamente a otra fase con justificación. Nunca lo des por b
 
 ## 5. Cierre
 
-> **El usuario hace personalmente todos los commits y pushes.** No ejecutes `git commit`,
-> `git push` ni `gh pr create` salvo que te lo pida de forma explícita en ese momento.
+> **El usuario escribe la historia del repo.** No ejecutes `git commit`, `git push`, `git merge`
+> ni `gh pr create` salvo que te lo pida de forma explícita en ese momento. Crear ramas y
+> moverte entre ellas sí está permitido.
 
 1. Deja los cambios en el working tree y presenta un resumen de qué archivos se tocaron y por qué,
    para que el usuario los revise en VS Code.
