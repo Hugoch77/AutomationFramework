@@ -102,6 +102,65 @@ class TestLifecycle:
         assert "arrancado" in repr(engine.start())
 
 
+class BrokenStartEngine(FakeEngine):
+    """An engine whose launch blows up halfway, after acquiring something."""
+
+    def _start(self) -> None:
+        super()._start()
+        raise RuntimeError("el navegador no arrancó")
+
+
+class UncleanableEngine(BrokenStartEngine):
+    """Worse: its own teardown is broken too."""
+
+    def _stop(self) -> None:
+        raise OSError("tampoco se pudo limpiar")
+
+
+class TestStartFailure:
+    """A half-started engine has to clean up after itself.
+
+    Launching is several steps for every technology (driver, then app, then a window). If the
+    second one fails, the first one's resources are already live and the caller never receives
+    an engine to call `stop()` on, so nobody will ever close them.
+    """
+
+    def test_the_failure_reaches_the_caller(self):
+        with pytest.raises(RuntimeError, match="el navegador no arrancó"):
+            BrokenStartEngine().start()
+
+    def test_teardown_runs_on_a_failed_start(self):
+        engine = BrokenStartEngine()
+
+        with pytest.raises(RuntimeError):
+            engine.start()
+
+        assert engine.stop_count == 1
+
+    def test_the_engine_is_left_stopped(self):
+        engine = BrokenStartEngine()
+
+        with pytest.raises(RuntimeError):
+            engine.start()
+
+        assert engine.is_started is False
+
+    def test_it_can_be_started_again_afterwards(self):
+        """A retry must not hit the "already started" guard."""
+        engine = BrokenStartEngine()
+
+        with pytest.raises(RuntimeError):
+            engine.start()
+
+        with pytest.raises(RuntimeError):
+            engine.start()
+
+    def test_a_broken_teardown_does_not_hide_the_real_failure(self):
+        """The start error explains what happened; the cleanup error is noise."""
+        with pytest.raises(RuntimeError, match="el navegador no arrancó"):
+            UncleanableEngine().start()
+
+
 class TestContextManager:
     def test_starts_on_enter_and_stops_on_exit(self):
         engine = FakeEngine()

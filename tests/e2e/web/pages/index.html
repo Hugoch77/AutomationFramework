@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Banco de pruebas</title>
+</head>
+<body>
+  <h1 data-testid="titulo">Banco de pruebas</h1>
+
+  <!-- Cada estrategia soportada tiene aquí un elemento que la ejercita. -->
+  <input data-testid="caja-busqueda" placeholder="Buscar algo" aria-label="Campo de búsqueda">
+  <button data-testid="boton-buscar" class="primario">Buscar</button>
+
+  <label for="correo">Correo electrónico</label>
+  <input id="correo" type="email">
+
+  <a href="/destino.html" data-testid="enlace-destino" title="ir">Ir al destino</a>
+
+  <p data-testid="oculto" style="display: none">No deberías verme</p>
+
+  <ul data-testid="lista">
+    <li class="fila">uno</li>
+    <li class="fila">dos</li>
+    <li class="fila">tres</li>
+  </ul>
+
+  <!-- Aparece tarde: ejercita la auto-espera sin recurrir a sleeps. -->
+  <div id="tardio"></div>
+
+  <!-- Desaparece: ejercita wait_for(ABSENT/HIDDEN). -->
+  <p data-testid="efimero">Me voy en un momento</p>
+
+  <script>
+    setTimeout(function () {
+      var destino = document.getElementById("tardio");
+      var aparecido = document.createElement("p");
+      aparecido.setAttribute("data-testid", "tardio");
+      aparecido.textContent = "Ya llegué";
+      destino.appendChild(aparecido);
+    }, 400);
+
+    setTimeout(function () {
+      var efimero = document.querySelector('[data-testid="efimero"]');
+      efimero.parentNode.removeChild(efimero);
+    }, 400);
+
+    document.querySelector('[data-testid="boton-buscar"]').addEventListener("click", function () {
+      var resultado = document.createElement("p");
+      resultado.setAttribute("data-testid", "resultado");
+      resultado.textContent =
+        "Resultados para: " + document.querySelector('[data-testid="caja-busqueda"]').value;
+      document.body.appendChild(resultado);
+    });
+  </script>
+</body>
+</html>

@@ -35,14 +35,37 @@ uv run pytest
 ## Ejecutar pruebas
 
 ```bash
-uv run pytest                  # todo excepto escritorio
-uv run pytest tests/unit       # pruebas del framework (rápidas, sin UI)
-uv run pytest -m web           # suite web end-to-end
-uv run pytest -m desktop       # suite de escritorio (requiere sesión Windows desbloqueada)
+uv run pytest                          # todo excepto escritorio
+uv run pytest tests/unit               # pruebas del framework (rápidas, sin navegador)
+uv run pytest -m web                   # suite web end-to-end
+uv run pytest -m "web and not external" # sólo contra páginas locales, sin depender de terceros
+uv run pytest -m desktop               # escritorio (requiere sesión Windows desbloqueada)
+```
+
+Opciones propias, útiles al depurar:
+
+```bash
+uv run pytest -m web --headed              # con navegador visible
+uv run pytest -m web --browser-name firefox
+uv run pytest -m web --record-trace         # adjunta una traza si el test falla
 ```
 
 La suite de escritorio queda excluida por defecto porque necesita una sesión de Windows
-interactiva; hay que pedirla explícitamente.
+interactiva. Los tests marcados `external` dependen de un sitio de terceros: si fallan,
+lo primero que hay que descartar es que el problema sea de ese sitio.
+
+Cuando un test falla, el framework guarda captura y traza en `artifacts/<test>/`.
+
+### Cobertura
+
+```bash
+uv run coverage run -m pytest -m "not desktop and not external"
+uv run coverage report --show-missing
+```
+
+Se usa `coverage run -m pytest` y **no** `pytest --cov`: el plugin de pytest de este paquete
+se registra por entry point, así que pytest importa el paquete entero antes de que pytest-cov
+empiece a medir, y todo el código a nivel de módulo aparecería como no cubierto.
 
 ## Estructura
 

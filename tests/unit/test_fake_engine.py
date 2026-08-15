@@ -7,6 +7,7 @@ be trustworthy: every other test in the suite believes what it says.
 import pytest
 
 from automation_framework.core.capabilities import Feature
+from automation_framework.core.exceptions import ElementError
 from automation_framework.core.locator import Locator, Strategy
 from automation_framework.testing import FakeElement, FakeEngine, FakeNode
 
@@ -120,7 +121,25 @@ class TestInteractionRecording:
 
         engine.find(BUTTON).fill("notepad")
 
-        assert engine.find(BUTTON).attribute("value") == "notepad"
+        assert engine.find(BUTTON).value() == "notepad"
+
+    def test_the_typed_value_is_not_the_declared_attribute(self, engine):
+        """The distinction that Fase 2 uncovered against a real browser."""
+        engine.add(BUTTON, attributes={"value": "declarado"})
+
+        engine.find(BUTTON).fill("escrito")
+
+        assert engine.find(BUTTON).value() == "escrito"
+        assert engine.find(BUTTON).attribute("value") == "declarado"
+
+    def test_reading_the_value_of_a_non_field_is_refused(self, engine):
+        engine.add(BUTTON, editable=False)
+
+        with pytest.raises(ElementError, match="no tiene un valor editable"):
+            engine.find(BUTTON).value()
+
+    def test_the_value_of_a_missing_element_is_empty(self, engine):
+        assert FakeElement(engine, BUTTON, index=5)._value() == ""
 
     def test_fill_tolerates_a_node_that_vanished(self, engine):
         """Defensive branch: the tree can change between the wait and the action."""

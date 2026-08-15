@@ -89,6 +89,10 @@ class Element(ABC):
         """The element's current value for ``name``, or ``None`` if it has none."""
 
     @abstractmethod
+    def _value(self) -> str:
+        """The element's current editable value."""
+
+    @abstractmethod
     def _click(self) -> None:
         """Click the element."""
 
@@ -127,9 +131,27 @@ class Element(ABC):
         return self._text()
 
     def attribute(self, name: str, *, timeout: float | None = None) -> str | None:
-        """Wait for the element to be present, then read the ``name`` attribute."""
+        """Wait for the element to be present, then read the ``name`` attribute.
+
+        Note this reads the *declared* attribute. For what the user typed into a field, use
+        :meth:`value` — typing changes the DOM property, never the HTML attribute.
+        """
         self.wait_for(ElementState.PRESENT, timeout=timeout)
         return self._attribute(name)
+
+    def value(self, *, timeout: float | None = None) -> str:
+        """Wait for the element to be present, then read its current editable value.
+
+        Separate from :meth:`attribute` because ``attribute("value")`` returns the markup's
+        declared value, which does not change when the user types. Both technologies model
+        this distinctly — ``input_value()`` in Playwright, the Value pattern in UI Automation —
+        so it earns a primitive of its own rather than a special case inside ``attribute``.
+
+        Raises:
+            ElementError: The element has no editable value (it is not a field).
+        """
+        self.wait_for(ElementState.PRESENT, timeout=timeout)
+        return self._value()
 
     # --------------------------------------------------------------------- esperas ---
 
