@@ -44,7 +44,10 @@ packages = ["src/automation_framework"]
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
-pythonpath = ["src"]
+# La raíz va en el path para que los Page Objects de una suite se importen por su ruta
+# (`tests.e2e.web.saucedemo`). Viven junto a los tests que los usan, no en el paquete:
+# el framework no debe saber que saucedemo existe.
+pythonpath = ["src", "."]
 # Los tests de escritorio requieren una sesión de Windows interactiva y desbloqueada,
 # por eso quedan fuera por defecto. Pídelos explícitamente con: pytest -m desktop
 addopts = [

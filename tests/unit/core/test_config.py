@@ -51,6 +51,22 @@ class TestDefaults:
         assert timeouts.default == 10.0
         assert timeouts.poll_interval == 0.1
         assert timeouts.startup == 30.0
+        assert timeouts.navigation == 30.0
+
+    def test_navigation_is_budgeted_apart_from_element_waits(self, monkeypatch):
+        """Loading a real page is slow and unpredictable; waiting for a visible button is not.
+        One shared number would have to cover the worst case, and then every failure in the
+        suite would take that long to report."""
+        monkeypatch.setenv("AF_TIMEOUTS__NAVIGATION", "60")
+
+        timeouts = load_settings().timeouts
+
+        assert timeouts.navigation == 60.0
+        assert timeouts.default == 10.0
+
+    def test_a_navigation_budget_must_be_positive(self):
+        with pytest.raises(ConfigurationError):
+            load_settings(timeouts={"navigation": 0})
 
 
 class TestEnvironment:

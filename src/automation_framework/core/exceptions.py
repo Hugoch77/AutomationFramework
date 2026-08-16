@@ -70,6 +70,15 @@ class EngineNotStartedError(EngineError):
         )
 
 
+class NavigationError(EngineError):
+    """The application could not be taken to the requested place.
+
+    Lives in ``core`` rather than in the web engine because "navigation" is not a Playwright
+    idea: a desktop engine that opens a window or walks a wizard has the same failure. Keeping
+    it here is what lets a suite catch it without importing from ``engines``.
+    """
+
+
 # -------------------------------------------------------------------------- element ---
 class ElementError(AutomationError):
     """Base class for problems interacting with an element."""
@@ -83,6 +92,26 @@ class ElementNotFoundError(ElementError):
         self.timeout = timeout
         waited = f" tras esperar {timeout:g}s" if timeout is not None else ""
         super().__init__(f"No se encontró el elemento {locator}{waited}.")
+
+
+# ---------------------------------------------------------------------------- pages ---
+class PageNotLoadedError(AutomationError):
+    """A page object was used before the screen it describes was on display.
+
+    Raised instead of letting the test fail on whichever element it happened to touch first:
+    "no se encontró el botón de comprar" sends the reader looking at that button, when the real
+    story is that the application was still on the previous screen.
+    """
+
+    def __init__(self, page_name: str, marker: Locator, timeout: float | None = None) -> None:
+        self.page_name = page_name
+        self.marker = marker
+        self.timeout = timeout
+        waited = f" tras esperar {timeout:g}s" if timeout is not None else ""
+        super().__init__(
+            f"La página {page_name!r} no llegó a cargarse{waited}: "
+            f"no apareció su marcador {marker}."
+        )
 
 
 # ------------------------------------------------------------------------ contratos ---

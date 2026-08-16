@@ -40,6 +40,16 @@ class Timeouts(BaseModel):
     startup: float = Field(default=30.0, gt=0)
     """Launching or attaching to the application under test."""
 
+    navigation: float = Field(default=30.0, gt=0)
+    """Loading a page, for engines that navigate.
+
+    Separate from :attr:`default` for the same reason :attr:`startup` is: a first navigation
+    to a real site pulls down every asset over whatever the network is doing today, while
+    waiting for a button that is already on screen should be quick. Folding both into one
+    number means the shared budget has to cover the worst case, and then *every* failure in
+    the suite takes that long to surface — turning a slow network into a slow test report.
+    """
+
 
 class Viewport(BaseModel):
     """Window size for engines that have one."""

@@ -9,6 +9,7 @@ browser costs a fraction of a second; an order-dependent bug costs an afternoon.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -20,7 +21,7 @@ from automation_framework.core.registry import create_engine
 from automation_framework.engines import load_available
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterator, Mapping
+    from collections.abc import Generator, Iterator
     from pathlib import Path
 
     from automation_framework.core.config import Settings
@@ -90,6 +91,24 @@ def settings(request: pytest.FixtureRequest) -> Settings:
     return resolved
 
 
+def _deep_merge(base: Mapping[str, Any], override: Mapping[str, Any]) -> dict[str, Any]:
+    """Merge ``override`` onto ``base``, descending into nested settings groups.
+
+    A flat merge would make `af_config(timeouts={"navigation": 60})` replace the whole
+    `timeouts` group, quietly resetting `default`, `poll_interval` and `startup` to their
+    factory values — a test that looks like it tweaked one budget while it actually discarded
+    the other three, including anything the environment had set.
+    """
+    merged = dict(base)
+    for key, value in override.items():
+        current = merged.get(key)
+        if isinstance(current, Mapping) and isinstance(value, Mapping):
+            merged[key] = _deep_merge(current, value)
+        else:
+            merged[key] = value
+    return merged
+
+
 def apply_overrides(settings: Settings, overrides: Mapping[str, Any]) -> Settings:
     """Merge ``@pytest.mark.af_config(...)`` values onto ``settings``, revalidating.
 
@@ -114,7 +133,7 @@ def apply_overrides(settings: Settings, overrides: Mapping[str, Any]) -> Setting
             f"Ajustes desconocidos en @pytest.mark.af_config: {', '.join(unknown)}. "
             f"Válidos: {', '.join(sorted(known))}."
         )
-    return load_settings(**{**settings.model_dump(), **overrides})
+    return load_settings(**_deep_merge(settings.model_dump(), overrides))
 
 
 @pytest.fixture(scope="session")
@@ -149,6 +168,7 @@ def engine(
         test_id_attribute=resolved.test_id_attribute,
         timeout=resolved.timeouts.default,
         poll_interval=resolved.timeouts.poll_interval,
+        navigation_timeout=resolved.timeouts.navigation,
     )
 
     with bound_context(test_id=request.node.name, engine=resolved.engine):

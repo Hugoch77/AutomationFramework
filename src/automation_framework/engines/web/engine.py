@@ -8,10 +8,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
 from automation_framework.core.engine import Engine
-from automation_framework.core.exceptions import ConfigurationError, EngineNotStartedError
+from automation_framework.core.exceptions import (
+    ConfigurationError,
+    EngineNotStartedError,
+    NavigationError,
+)
 from automation_framework.core.log import get_logger
 from automation_framework.core.waits import DEFAULT_POLL_INTERVAL, DEFAULT_TIMEOUT
 from automation_framework.engines.web.element import WebElement
@@ -42,6 +48,8 @@ class PlaywrightEngine(Engine):
         viewport: ``(width, height)`` in pixels, or ``None`` for Playwright's default.
         record_trace: Record a Playwright trace, retrievable with :meth:`save_trace`.
             Off by default because a trace costs time and disk on every single test.
+        navigation_timeout: Budget for :meth:`goto`, in seconds. Defaults to ``timeout`` when
+            omitted, which is also what Playwright does with a single default.
     """
 
     def __init__(
@@ -55,6 +63,7 @@ class PlaywrightEngine(Engine):
         test_id_attribute: str = "data-testid",
         timeout: float = DEFAULT_TIMEOUT,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
+        navigation_timeout: float | None = None,
     ) -> None:
         super().__init__(timeout=timeout, poll_interval=poll_interval)
         if browser not in SUPPORTED_BROWSERS:
@@ -67,6 +76,7 @@ class PlaywrightEngine(Engine):
         self._viewport = viewport
         self._record_trace = record_trace
         self._test_id_attribute = test_id_attribute
+        self._navigation_timeout = timeout if navigation_timeout is None else navigation_timeout
 
         self._playwright: Playwright | None = None
         self._browser: Browser | None = None
@@ -105,6 +115,9 @@ class PlaywrightEngine(Engine):
         )
         self._context = self._browser.new_context(base_url=self._base_url, viewport=viewport)
         self._context.set_default_timeout(self._timeout * 1000)
+        # Sin esto, Playwright cubre también la navegación con el timeout por defecto, y darle
+        # margen al goto obligaría a subir el presupuesto de todas las esperas de elemento.
+        self._context.set_default_navigation_timeout(self._navigation_timeout * 1000)
 
         if self._record_trace:
             self._context.tracing.start(screenshots=True, snapshots=True, sources=True)
@@ -152,9 +165,25 @@ class PlaywrightEngine(Engine):
         Web-specific on purpose. "Navigate" has no honest equivalent on the desktop side,
         and inventing a generic ``open()`` before the desktop engine exists would be
         guessing at a shape we cannot yet check. Fase 5 will say whether it is warranted.
+
+        Raises:
+            EngineNotStartedError: The engine has not been started.
+            NavigationError: The page did not load within the navigation budget, or the
+                browser refused the URL.
         """
         self._require_started("goto")
-        self.page.goto(url)
+        try:
+            self.page.goto(url)
+        except PlaywrightTimeoutError as error:
+            raise NavigationError(
+                f"La navegación a {url!r} no terminó en {self._navigation_timeout:g}s. "
+                "Si el sitio es externo, prueba a subir AF_TIMEOUTS__NAVIGATION."
+            ) from error
+        except PlaywrightError as error:
+            # Igual que en WebElement: una excepción de Playwright que llega a un test acaba
+            # con las suites escribiendo `except PlaywrightError`, y con la abstracción.
+            detail = next(iter(str(error).splitlines()), "") or type(error).__name__
+            raise NavigationError(f"Falló la navegación a {url!r}: {detail}") from error
 
     # ------------------------------------------------------------------ primitivas ---
 
