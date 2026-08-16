@@ -64,7 +64,11 @@ class FakeNode:
     """Nodes reachable only through this one, so relative search has something to walk."""
 
     options: tuple[str, ...] = ()
-    """Choices this node offers, for modelling a dropdown. Empty means "not a list"."""
+    """Choices this node offers, for modelling a dropdown.
+
+    Empty means the node is **not** a list of choices, and selecting on it raises — the same
+    thing the web engine does on an element that is not a ``<select>``.
+    """
 
     def exists(self) -> bool:
         """Answer whether the node is in the tree, honouring ``appear_after``."""
@@ -81,6 +85,7 @@ class FakeNode:
         value: str = "",
         editable: bool = True,
         appear_after: int = 0,
+        options: tuple[str, ...] = (),
     ) -> FakeNode:
         """Script a descendant of this node and return it."""
         node = FakeNode(
@@ -90,6 +95,7 @@ class FakeNode:
             value=value,
             editable=editable,
             appear_after=appear_after,
+            options=options,
         )
         self.children.setdefault(locator, []).append(node)
         return node
@@ -172,16 +178,31 @@ class FakeElement(Element):
             node.value = text
 
     def _select(self, value: str) -> None:
-        self._engine.record("select", self._locator, value)
+        """Choose an option, refusing anything that is not a list of choices.
+
+        A node with no ``options`` is not a dropdown, and selecting on it must fail here just
+        as Playwright's ``select_option`` fails on a non-``<select>``. A double that is more
+        permissive than the real engine is worse than no double: it green-lights unit tests
+        that would break against a browser.
+
+        Unlike ``_fill``, the event is recorded only once the selection actually applies —
+        ``events`` is meant to show what the application received, and a rejected choice never
+        reached it.
+        """
         node = self._node()
         if node is None:
             return
-        if node.options and value not in node.options:
+        if not node.options:
+            raise ElementError(
+                f"El elemento {self._locator} no es una lista de opciones; ¿querías fill()?"
+            )
+        if value not in node.options:
             raise ElementError(
                 f"El elemento {self._locator} no tiene la opción {value!r}; "
                 f"tiene: {', '.join(node.options)}."
             )
         node.value = value
+        self._engine.record("select", self._locator, value)
 
     def _find_child(self, locator: Locator) -> FakeElement:
         return FakeElement(self._engine, locator, parent=self)

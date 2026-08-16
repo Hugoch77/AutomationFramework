@@ -151,6 +151,25 @@ class TestSelect:
         with pytest.raises(ElementError, match="hilo"):
             engine.find(SELECTOR).select("por-fecha")
 
+    def test_selecting_on_something_that_is_not_a_dropdown_fails(self, engine):
+        """El doble no puede ser más permisivo que el engine real.
+
+        Playwright rechaza `select_option` sobre lo que no es un `<select>`; si aquí pasara
+        en silencio, un test unitario quedaría verde y reventaría contra el navegador.
+        """
+        engine.add(BUTTON, text="Enviar")
+
+        with pytest.raises(ElementError, match="no es una lista de opciones"):
+            engine.find(BUTTON).select("lohi")
+
+    def test_a_rejected_selection_never_reaches_the_application(self, engine):
+        engine.add(BUTTON, text="Enviar")
+
+        with pytest.raises(ElementError):
+            engine.find(BUTTON).select("lohi")
+
+        assert engine.events == []
+
     def test_select_on_a_missing_element_reports_the_element(self, engine):
         with pytest.raises(ElementNotFoundError):
             engine.find(MISSING).select("lohi")
