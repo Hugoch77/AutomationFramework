@@ -18,6 +18,7 @@ jobs:
   quality:
     name: Lint y tipos
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 
@@ -41,6 +42,7 @@ jobs:
   unit:
     name: Tests unitarios
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 
@@ -78,6 +80,9 @@ jobs:
   web:
     name: Suite web (local)
     runs-on: ubuntu-latest
+    # Tarda ~1m. El techo existe para que un cuelgue del navegador no se coma las 6h
+    # que GitHub concede por defecto, dejando el PR bloqueado y sin logs que leer.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
@@ -127,6 +132,7 @@ jobs:
   external:
     name: Suite contra sitio público
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # Informativo: si saucedemo.com está caído o cambia, no es culpa de este código y no
     # debe bloquear un merge. Lo que sí bloquea es el job `web`, que no depende de nadie.
     continue-on-error: true
