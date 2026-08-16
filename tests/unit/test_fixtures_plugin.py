@@ -48,6 +48,47 @@ class TestApplyOverrides:
         assert resolved.viewport.as_tuple() == base.viewport.as_tuple()
 
 
+class TestNestedOverrides:
+    """Overriding one budget must not silently discard its siblings.
+
+    A flat merge replaces the whole `timeouts` group, so a test asking for a longer navigation
+    budget would also reset `default`, `poll_interval` and `startup` to their factory values —
+    including anything the environment had configured. It would still pass, just not with the
+    configuration it declared.
+    """
+
+    def test_a_nested_override_keeps_its_siblings(self, base):
+        resolved = apply_overrides(base, {"timeouts": {"navigation": 60}})
+
+        assert resolved.timeouts.navigation == 60
+        assert resolved.timeouts.default == base.timeouts.default
+        assert resolved.timeouts.poll_interval == base.timeouts.poll_interval
+        assert resolved.timeouts.startup == base.timeouts.startup
+
+    def test_a_nested_override_keeps_the_environment_value_of_its_siblings(self, monkeypatch):
+        """The sibling that gets clobbered by a flat merge is the one someone configured."""
+        monkeypatch.setenv("AF_TIMEOUTS__DEFAULT", "7")
+        configured = Settings()
+
+        resolved = apply_overrides(configured, {"timeouts": {"navigation": 60}})
+
+        assert resolved.timeouts.navigation == 60
+        assert resolved.timeouts.default == 7
+
+    def test_two_groups_can_be_overridden_at_once(self, base):
+        resolved = apply_overrides(
+            base, {"timeouts": {"navigation": 45}, "viewport": {"width": 800}}
+        )
+
+        assert resolved.timeouts.navigation == 45
+        assert resolved.viewport.width == 800
+        assert resolved.viewport.height == base.viewport.height
+
+    def test_a_top_level_value_still_replaces_outright(self, base):
+        """Deep merging is for groups; a scalar must not acquire merge semantics."""
+        assert apply_overrides(base, {"browser": "firefox"}).browser == "firefox"
+
+
 class TestUnknownOverrides:
     """A typo must fail, not be ignored.
 

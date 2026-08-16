@@ -7,12 +7,15 @@ Deliberately no sleeps anywhere: `index.html` scripts an element to appear after
 another to disappear, and the auto-waiting inherited from `Element` has to cope on its own.
 """
 
+import re
+
 import pytest
 
 from automation_framework.core.element import ElementState
 from automation_framework.core.exceptions import (
     ElementError,
     ElementNotFoundError,
+    NavigationError,
     UnsupportedStrategyError,
     WaitTimeoutError,
 )
@@ -29,6 +32,12 @@ TARDIO = Locator.test_id("tardio", description="elemento que aparece tarde")
 EFIMERO = Locator.test_id("efimero", description="elemento que desaparece")
 AUSENTE = Locator.test_id("no-existe", description="algo que no está")
 FILAS = Locator.css("li.fila", description="filas de la lista")
+CATALOGO = Locator.test_id("catalogo", description="catálogo de tarjetas")
+TARJETA = Locator.test_id("tarjeta", description="tarjeta de producto")
+NOMBRE = Locator.css(".nombre", description="nombre del producto")
+PRECIO = Locator.css(".precio", description="precio del producto")
+COMPRAR = Locator.css("button.comprar", description="botón de comprar de la tarjeta")
+COMPRADO = Locator.test_id("comprado", description="aviso de compra")
 
 
 @pytest.fixture
@@ -177,6 +186,52 @@ class TestNavegacion:
         web.find(Locator.test_id("enlace-destino")).click()
 
         assert web.find(TITULO).text() == "Has llegado al destino"
+
+    @pytest.mark.af_config(timeouts={"navigation": 0.001})
+    def test_la_navegacion_respeta_su_propio_presupuesto(self, engine, local_site):
+        """Un milisegundo no da ni para el handshake, así que la página local se pasa de plazo.
+
+        Verifica el cableado completo —Settings → fixture → contexto de Playwright— y no sólo
+        que el engine guarde el número: sin `set_default_navigation_timeout`, este goto usaría
+        el timeout general y pasaría.
+        """
+        with pytest.raises(NavigationError):
+            engine.goto(f"{local_site}/index.html")
+
+    def test_un_destino_inalcanzable_da_un_error_del_framework(self, engine):
+        """Sin traducir, aquí llegaría una excepción de Playwright y la abstracción se acabó."""
+        with pytest.raises(NavigationError, match=re.escape("127.0.0.1:1")):
+            engine.goto("http://127.0.0.1:1/")
+
+
+class TestBusquedaRelativa:
+    """La primitiva que hace posibles los componentes, contra un DOM de verdad."""
+
+    def test_un_elemento_encuentra_a_sus_descendientes(self, web):
+        tarjeta = web.find(TARJETA)
+
+        assert tarjeta.find(NOMBRE).text() == "Mochila"
+
+    def test_cada_elemento_responde_por_su_propio_subarbol(self, web):
+        """Si el scoping no funciona, ambas tarjetas devuelven "Mochila" y todo parece bien."""
+        tarjetas = web.find_all(TARJETA)
+
+        assert [tarjeta.find(NOMBRE).text() for tarjeta in tarjetas] == ["Mochila", "Bicicleta"]
+
+    def test_no_alcanza_lo_que_esta_fuera_del_subarbol(self, web):
+        assert web.find(TARJETA).find(TITULO).exists() is False
+
+    def test_find_all_relativo_cuenta_dentro_del_subarbol(self, web):
+        assert len(web.find(CATALOGO).find_all(TARJETA)) == 2
+        assert len(web.find(TARJETA).find_all(NOMBRE)) == 1
+
+    def test_actuar_sobre_un_descendiente_actua_donde_toca(self, web):
+        web.find_all(TARJETA)[1].find(COMPRAR).click()
+
+        assert web.find(COMPRADO).text() == "Bicicleta"
+
+    def test_el_anidamiento_puede_encadenarse(self, web):
+        assert web.find(CATALOGO).find(TARJETA).find(PRECIO).text() == "29,99 €"
 
 
 class TestCapturas:

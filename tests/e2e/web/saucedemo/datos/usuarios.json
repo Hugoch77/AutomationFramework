@@ -1,0 +1,34 @@
+{
+  "estandar": {
+    "usuario": "standard_user",
+    "clave": "secret_sauce",
+    "puede_entrar": true,
+    "descripcion": "el usuario sin peculiaridades"
+  },
+  "bloqueado": {
+    "usuario": "locked_out_user",
+    "clave": "secret_sauce",
+    "puede_entrar": false,
+    "error_esperado": "locked out",
+    "descripcion": "cuenta desactivada por el administrador"
+  },
+  "problematico": {
+    "usuario": "problem_user",
+    "clave": "secret_sauce",
+    "puede_entrar": true,
+    "descripcion": "entra, pero el catálogo se comporta de forma extraña"
+  },
+  "lento": {
+    "usuario": "performance_glitch_user",
+    "clave": "secret_sauce",
+    "puede_entrar": true,
+    "descripcion": "entra con varios segundos de retraso"
+  },
+  "inexistente": {
+    "usuario": "usuario_inexistente",
+    "clave": "clave_incorrecta",
+    "puede_entrar": false,
+    "error_esperado": "do not match",
+    "descripcion": "credenciales que no corresponden a nadie"
+  }
+}

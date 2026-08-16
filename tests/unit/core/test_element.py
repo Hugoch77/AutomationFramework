@@ -8,7 +8,11 @@ auto-waiting policy, and how failures are reported.
 import pytest
 
 from automation_framework.core.element import ElementState
-from automation_framework.core.exceptions import ElementNotFoundError, WaitTimeoutError
+from automation_framework.core.exceptions import (
+    ElementError,
+    ElementNotFoundError,
+    WaitTimeoutError,
+)
 from automation_framework.core.locator import Locator
 from automation_framework.testing import FakeEngine
 
@@ -16,6 +20,7 @@ pytestmark = pytest.mark.unit
 
 BUTTON = Locator.test_id("submit", description="botón de enviar")
 MISSING = Locator.test_id("nope", description="algo que no existe")
+SELECTOR = Locator.test_id("orden", description="desplegable de orden")
 
 
 @pytest.fixture
@@ -109,6 +114,65 @@ class TestActions:
         engine.add(BUTTON, text="Enviar", appear_after=3)
 
         assert engine.find(BUTTON).text() == "Enviar"
+
+
+class TestSelect:
+    """Choosing in a dropdown is its own operation, not a variant of filling.
+
+    Typing into a `<select>` does nothing, so without this primitive a suite would have to
+    reach past the contract into the automation library.
+    """
+
+    def test_select_chooses_an_option(self, engine):
+        engine.add(SELECTOR, options=("lohi", "hilo"))
+
+        engine.find(SELECTOR).select("lohi")
+
+        assert engine.events == [("select", str(SELECTOR), "lohi")]
+
+    def test_select_records_the_chosen_value(self, engine):
+        engine.add(SELECTOR, options=("lohi", "hilo"))
+
+        engine.find(SELECTOR).select("hilo")
+
+        assert engine.find(SELECTOR).value() == "hilo"
+
+    def test_select_waits_for_a_late_element(self, engine):
+        engine.add(SELECTOR, options=("lohi",), appear_after=2)
+
+        engine.find(SELECTOR).select("lohi")
+
+        assert engine.find(SELECTOR).value() == "lohi"
+
+    def test_an_option_that_does_not_exist_fails(self, engine):
+        """Elegir algo que no está es un error del test, y debe decirlo."""
+        engine.add(SELECTOR, options=("lohi", "hilo"))
+
+        with pytest.raises(ElementError, match="hilo"):
+            engine.find(SELECTOR).select("por-fecha")
+
+    def test_selecting_on_something_that_is_not_a_dropdown_fails(self, engine):
+        """El doble no puede ser más permisivo que el engine real.
+
+        Playwright rechaza `select_option` sobre lo que no es un `<select>`; si aquí pasara
+        en silencio, un test unitario quedaría verde y reventaría contra el navegador.
+        """
+        engine.add(BUTTON, text="Enviar")
+
+        with pytest.raises(ElementError, match="no es una lista de opciones"):
+            engine.find(BUTTON).select("lohi")
+
+    def test_a_rejected_selection_never_reaches_the_application(self, engine):
+        engine.add(BUTTON, text="Enviar")
+
+        with pytest.raises(ElementError):
+            engine.find(BUTTON).select("lohi")
+
+        assert engine.events == []
+
+    def test_select_on_a_missing_element_reports_the_element(self, engine):
+        with pytest.raises(ElementNotFoundError):
+            engine.find(MISSING).select("lohi")
 
 
 class TestActionFailures:

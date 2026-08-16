@@ -20,6 +20,8 @@ from automation_framework.core.exceptions import ElementError, ElementNotFoundEr
 from automation_framework.engines.web.locators import to_playwright
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from playwright.sync_api import Locator as PlaywrightLocator
     from playwright.sync_api import Page
 
@@ -46,13 +48,26 @@ class WebElement(Element):
         timeout: float,
         poll_interval: float,
         query_timeout: float = DEFAULT_QUERY_TIMEOUT,
+        root: PlaywrightLocator | None = None,
     ) -> None:
         super().__init__(locator, timeout=timeout, poll_interval=poll_interval)
         self._page = page
         self._index = index
         self._query_ms = query_timeout * 1000
         self._action_ms = timeout * 1000
+        self._query_timeout = query_timeout
+        self._root = root
         self._resolved: PlaywrightLocator | None = None
+
+    @property
+    def _scope(self) -> Page | PlaywrightLocator:
+        """Where lookups start: the page, or the ancestor this handle hangs from.
+
+        Playwright locators expose the same query methods as the page, so the translation in
+        `to_playwright` works unchanged against either — which is what keeps relative search
+        from needing a second code path.
+        """
+        return self._page if self._root is None else self._root
 
     @property
     def _target(self) -> PlaywrightLocator:
@@ -63,8 +78,20 @@ class WebElement(Element):
         `find` contract promises.
         """
         if self._resolved is None:
-            self._resolved = to_playwright(self._page, self._locator).nth(self._index)
+            self._resolved = to_playwright(self._scope, self._locator).nth(self._index)
         return self._resolved
+
+    def _child(self, locator: Locator, index: int = 0) -> WebElement:
+        """A handle scoped to this element's subtree."""
+        return WebElement(
+            self._page,
+            locator,
+            index=index,
+            timeout=self._timeout,
+            poll_interval=self._poll_interval,
+            query_timeout=self._query_timeout,
+            root=self._target,
+        )
 
     def _failure(self, operation: str, error: PlaywrightError) -> ElementError:
         """Turn a Playwright error into a framework one.
@@ -144,3 +171,25 @@ class WebElement(Element):
             raise ElementNotFoundError(self._locator, timeout=self._action_ms / 1000) from error
         except PlaywrightError as error:
             raise self._failure("el rellenado", error) from error
+
+    def _select(self, value: str) -> None:
+        try:
+            self._target.select_option(value, timeout=self._action_ms)
+        except PlaywrightTimeoutError as error:
+            raise ElementNotFoundError(self._locator, timeout=self._action_ms / 1000) from error
+        except PlaywrightError as error:
+            # Playwright rechaza select_option sobre lo que no es un <select>, y también
+            # cuando el <select> no tiene esa opción: ambas cosas son un error del test.
+            raise self._failure(f"la selección de {value!r}", error) from error
+
+    # ------------------------------------------------------------------- búsqueda ---
+
+    def _find_child(self, locator: Locator) -> WebElement:
+        return self._child(locator)
+
+    def _find_children(self, locator: Locator) -> Sequence[WebElement]:
+        try:
+            total = to_playwright(self._target, locator).count()
+        except PlaywrightError as error:
+            raise self._failure(f"la búsqueda de {locator}", error) from error
+        return [self._child(locator, index) for index in range(total)]

@@ -25,7 +25,7 @@ from automation_framework.core.exceptions import ElementNotFoundError, WaitTimeo
 from automation_framework.core.waits import DEFAULT_POLL_INTERVAL, DEFAULT_TIMEOUT, wait_until
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     from automation_framework.core.locator import Locator
 
@@ -65,6 +65,20 @@ class Element(ABC):
         """The locator this handle was built from."""
         return self._locator
 
+    @property
+    def timeout(self) -> float:
+        """Default wait budget, in seconds, for this handle.
+
+        Public so that helpers built on top of the contract — assertions, page objects — can
+        honour the engine's configured budget instead of hardcoding one of their own.
+        """
+        return self._timeout
+
+    @property
+    def poll_interval(self) -> float:
+        """Delay between attempts while waiting, in seconds."""
+        return self._poll_interval
+
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self._locator})"
 
@@ -100,6 +114,18 @@ class Element(ABC):
     def _fill(self, text: str) -> None:
         """Replace the element's value with ``text``."""
 
+    @abstractmethod
+    def _select(self, value: str) -> None:
+        """Choose the option identified by ``value`` in a list of choices."""
+
+    @abstractmethod
+    def _find_child(self, locator: Locator) -> Element:
+        """Build a lazy handle for the first descendant matching ``locator``."""
+
+    @abstractmethod
+    def _find_children(self, locator: Locator) -> Sequence[Element]:
+        """Resolve ``locator`` inside this element now and return a handle per match."""
+
     # ------------------------------------------------------------------- consultas ---
     # Devuelven ya, sin esperar: preguntar "¿está?" y que la respuesta tarde diez
     # segundos en llegar sería una sorpresa desagradable.
@@ -124,6 +150,20 @@ class Element(ABC):
         """Wait for the element to be visible, then replace its value with ``text``."""
         self.wait_for(ElementState.VISIBLE, timeout=timeout)
         self._fill(text)
+
+    def select(self, value: str, *, timeout: float | None = None) -> None:
+        """Wait for the element to be visible, then choose the ``value`` option.
+
+        A dropdown is not a text field: typing into it does nothing, and ``fill`` either fails
+        or silently misses. Both technologies treat choosing as its own operation —
+        ``select_option`` in Playwright, the SelectionItem pattern in UI Automation — so it is
+        a primitive rather than a special case of filling.
+
+        Raises:
+            ElementError: The element is not a list of choices, or has no such option.
+        """
+        self.wait_for(ElementState.VISIBLE, timeout=timeout)
+        self._select(value)
 
     def text(self, *, timeout: float | None = None) -> str:
         """Wait for the element to be present, then read its text."""
@@ -152,6 +192,26 @@ class Element(ABC):
         """
         self.wait_for(ElementState.PRESENT, timeout=timeout)
         return self._value()
+
+    # -------------------------------------------------------------------- búsqueda ---
+    # Búsqueda relativa: la misma consulta, acotada a este subárbol.
+
+    def find(self, locator: Locator) -> Element:
+        """A lazy handle to the first descendant matching ``locator``.
+
+        This is what makes reusable components possible. Without it, the third row of a table
+        can only be addressed with an XPath that encodes the whole page structure, and the
+        same component cannot be pointed at two different tables on one screen.
+
+        Both technologies model this natively — ``locator.locator()`` in Playwright,
+        ``child_window()`` in UI Automation — which is why it earns a place in the contract
+        rather than being emulated with cleverer selectors.
+        """
+        return self._find_child(locator)
+
+    def find_all(self, locator: Locator) -> Sequence[Element]:
+        """One handle per descendant matching ``locator``, resolved now."""
+        return self._find_children(locator)
 
     # --------------------------------------------------------------------- esperas ---
 

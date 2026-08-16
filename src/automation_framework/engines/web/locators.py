@@ -50,8 +50,12 @@ obvious reason: they belong to UI Automation.
 """
 
 
-def to_playwright(page: Page, locator: Locator) -> PlaywrightLocator:
-    """Resolve `locator` against `page`.
+def to_playwright(scope: Page | PlaywrightLocator, locator: Locator) -> PlaywrightLocator:
+    """Resolve `locator` against `scope`.
+
+    `scope` is the page for a normal lookup, or another locator when searching inside an
+    element. Playwright gives both the same query methods, so relative search needs no second
+    translation — the one below works either way.
 
     Nothing is queried here — Playwright locators are lazy too, which is what makes the
     framework's laziness map onto this engine without any bookkeeping of our own.
@@ -65,25 +69,25 @@ def to_playwright(page: Page, locator: Locator) -> PlaywrightLocator:
     options = locator.options
     match locator.strategy:
         case Strategy.TEST_ID:
-            return page.get_by_test_id(locator.value)
+            return scope.get_by_test_id(locator.value)
         case Strategy.ROLE:
             # `name` afina el rol con el nombre accesible; `exact` decide si es coincidencia
             # literal. Se pasan sólo si vienen, para no imponer defaults distintos a los
             # de Playwright.
             role_options = {key: options[key] for key in ("name", "exact") if key in options}
-            return page.get_by_role(locator.value, **role_options)  # type: ignore[arg-type]
+            return scope.get_by_role(locator.value, **role_options)  # type: ignore[arg-type]
         case Strategy.TEXT:
-            return page.get_by_text(locator.value, exact=bool(options.get("exact", False)))
+            return scope.get_by_text(locator.value, exact=bool(options.get("exact", False)))
         case Strategy.LABEL:
-            return page.get_by_label(locator.value, exact=bool(options.get("exact", False)))
+            return scope.get_by_label(locator.value, exact=bool(options.get("exact", False)))
         case Strategy.PLACEHOLDER:
-            return page.get_by_placeholder(locator.value)
+            return scope.get_by_placeholder(locator.value)
         case Strategy.CSS:
-            return page.locator(locator.value)
+            return scope.locator(locator.value)
         case Strategy.XPATH:
             # El prefijo explícito evita depender de la heurística de Playwright, que sólo
             # reconoce el XPath cuando empieza por "//" o "..".
-            return page.locator(f"xpath={locator.value}")
+            return scope.locator(f"xpath={locator.value}")
         case _:  # pragma: no cover - las capabilities ya filtraron el resto
             raise UnsupportedStrategyError(
                 ENGINE_NAME, locator.strategy, WEB_CAPABILITIES.strategies

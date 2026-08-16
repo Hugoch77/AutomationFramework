@@ -60,22 +60,78 @@ class FakeNode:
     lookups: int = 0
     """How many times this node has been queried. Useful for asserting on polling."""
 
+    children: dict[Locator, list[FakeNode]] = field(default_factory=dict)
+    """Nodes reachable only through this one, so relative search has something to walk."""
+
+    options: tuple[str, ...] = ()
+    """Choices this node offers, for modelling a dropdown.
+
+    Empty means the node is **not** a list of choices, and selecting on it raises — the same
+    thing the web engine does on an element that is not a ``<select>``.
+    """
+
     def exists(self) -> bool:
         """Answer whether the node is in the tree, honouring ``appear_after``."""
         self.lookups += 1
         return self.lookups > self.appear_after
 
+    def add_child(
+        self,
+        locator: Locator,
+        *,
+        text: str = "",
+        visible: bool = True,
+        attributes: dict[str, str] | None = None,
+        value: str = "",
+        editable: bool = True,
+        appear_after: int = 0,
+        options: tuple[str, ...] = (),
+    ) -> FakeNode:
+        """Script a descendant of this node and return it."""
+        node = FakeNode(
+            text=text,
+            visible=visible,
+            attributes=dict(attributes or {}),
+            value=value,
+            editable=editable,
+            appear_after=appear_after,
+            options=options,
+        )
+        self.children.setdefault(locator, []).append(node)
+        return node
+
 
 class FakeElement(Element):
     """A handle into :class:`FakeEngine`'s dictionary."""
 
-    def __init__(self, engine: FakeEngine, locator: Locator, index: int = 0) -> None:
+    def __init__(
+        self,
+        engine: FakeEngine,
+        locator: Locator,
+        index: int = 0,
+        parent: FakeElement | None = None,
+    ) -> None:
         super().__init__(locator, timeout=engine.timeout, poll_interval=engine.poll_interval)
         self._engine = engine
         self._index = index
+        self._parent = parent
+
+    def _container(self) -> dict[Locator, list[FakeNode]] | None:
+        """Where this handle looks itself up: the whole tree, or its parent's children.
+
+        Resolved on each query rather than at construction, because a child handle has to stay
+        as lazy as any other — its parent may not exist yet when the handle is created.
+        """
+        if self._parent is None:
+            return self._engine.nodes
+        parent = self._parent._node()
+        return parent.children if parent is not None else None
 
     def _node(self) -> FakeNode | None:
-        nodes = self._engine.nodes.get(self._locator, [])
+        container = self._container()
+        if container is None:
+            return None
+        nodes = container.get(self._locator, [])
         if self._index >= len(nodes):
             return None
         return nodes[self._index]
@@ -121,6 +177,41 @@ class FakeElement(Element):
         if node is not None:
             node.value = text
 
+    def _select(self, value: str) -> None:
+        """Choose an option, refusing anything that is not a list of choices.
+
+        A node with no ``options`` is not a dropdown, and selecting on it must fail here just
+        as Playwright's ``select_option`` fails on a non-``<select>``. A double that is more
+        permissive than the real engine is worse than no double: it green-lights unit tests
+        that would break against a browser.
+
+        Unlike ``_fill``, the event is recorded only once the selection actually applies —
+        ``events`` is meant to show what the application received, and a rejected choice never
+        reached it.
+        """
+        node = self._node()
+        if node is None:
+            return
+        if not node.options:
+            raise ElementError(
+                f"El elemento {self._locator} no es una lista de opciones; ¿querías fill()?"
+            )
+        if value not in node.options:
+            raise ElementError(
+                f"El elemento {self._locator} no tiene la opción {value!r}; "
+                f"tiene: {', '.join(node.options)}."
+            )
+        node.value = value
+        self._engine.record("select", self._locator, value)
+
+    def _find_child(self, locator: Locator) -> FakeElement:
+        return FakeElement(self._engine, locator, parent=self)
+
+    def _find_children(self, locator: Locator) -> Sequence[FakeElement]:
+        node = self._node()
+        total = len(node.children.get(locator, [])) if node is not None else 0
+        return [FakeElement(self._engine, locator, index, parent=self) for index in range(total)]
+
 
 class FakeEngine(Engine):
     """An :class:`Engine` whose application under test is a dictionary.
@@ -152,6 +243,7 @@ class FakeEngine(Engine):
         value: str = "",
         editable: bool = True,
         appear_after: int = 0,
+        options: tuple[str, ...] = (),
     ) -> FakeNode:
         """Script an element into the fake application and return it."""
         node = FakeNode(
@@ -161,6 +253,7 @@ class FakeEngine(Engine):
             value=value,
             editable=editable,
             appear_after=appear_after,
+            options=options,
         )
         self.nodes.setdefault(locator, []).append(node)
         return node

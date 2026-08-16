@@ -21,6 +21,7 @@ desktop = ["pywinauto>=0.6.9; sys_platform == 'win32'"]
 dev = [
     "pytest>=8.3",
     "pytest-cov>=6.0",
+    "pytest-timeout>=2.3",
     "pytest-xdist>=3.6",
     "ruff>=0.9",
     "mypy>=1.15",
@@ -44,7 +45,10 @@ packages = ["src/automation_framework"]
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
-pythonpath = ["src"]
+# La raíz va en el path para que los Page Objects de una suite se importen por su ruta
+# (`tests.e2e.web.saucedemo`). Viven junto a los tests que los usan, no en el paquete:
+# el framework no debe saber que saucedemo existe.
+pythonpath = ["src", "."]
 # Los tests de escritorio requieren una sesión de Windows interactiva y desbloqueada,
 # por eso quedan fuera por defecto. Pídelos explícitamente con: pytest -m desktop
 addopts = [
@@ -54,6 +58,11 @@ addopts = [
     "--import-mode=importlib",
     "-m", "not desktop",
 ]
+# Red de seguridad, no un presupuesto: ningún test se acerca a esto (el más lento de la suite
+# web ronda los 5s). Existe para que un navegador que se cuelga produzca un traceback del
+# punto exacto en vez de un job de CI zombie que corre hasta el límite de 6 horas y no deja
+# un solo log que leer. Las esperas del framework siguen mandando dentro de cada test.
+timeout = 300
 markers = [
     "unit: pruebas del framework, sin UI ni red",
     "arch: pruebas de reglas de arquitectura",

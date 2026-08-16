@@ -24,6 +24,21 @@
     <li class="fila">tres</li>
   </ul>
 
+  <!-- Dos tarjetas con los MISMOS locators internos: si la búsqueda relativa no acota,
+       la segunda responde con los datos de la primera y el fallo pasa desapercibido. -->
+  <div data-testid="catalogo">
+    <div class="tarjeta" data-testid="tarjeta">
+      <span class="nombre">Mochila</span>
+      <span class="precio">29,99 €</span>
+      <button class="comprar">Comprar</button>
+    </div>
+    <div class="tarjeta" data-testid="tarjeta">
+      <span class="nombre">Bicicleta</span>
+      <span class="precio">150,00 €</span>
+      <button class="comprar">Comprar</button>
+    </div>
+  </div>
+
   <!-- Aparece tarde: ejercita la auto-espera sin recurrir a sleeps. -->
   <div id="tardio"></div>
 
@@ -43,6 +58,17 @@
       var efimero = document.querySelector('[data-testid="efimero"]');
       efimero.parentNode.removeChild(efimero);
     }, 400);
+
+    // Cada tarjeta anota su propio nombre al comprar, para comprobar que la acción
+    // se aplica al componente sobre el que se llamó y no al primero de la lista.
+    document.querySelectorAll('[data-testid="tarjeta"]').forEach(function (tarjeta) {
+      tarjeta.querySelector("button.comprar").addEventListener("click", function () {
+        var aviso = document.createElement("p");
+        aviso.setAttribute("data-testid", "comprado");
+        aviso.textContent = tarjeta.querySelector(".nombre").textContent;
+        document.body.appendChild(aviso);
+      });
+    });
 
     document.querySelector('[data-testid="boton-buscar"]').addEventListener("click", function () {
       var resultado = document.createElement("p");
