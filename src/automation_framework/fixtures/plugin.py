@@ -215,7 +215,10 @@ def engine(
         navigation_timeout=resolved.timeouts.navigation,
     )
 
-    with bound_context(test_id=request.node.name, engine=resolved.engine):
+    # `nodeid` y no `name`: dos módulos pueden tener un test con el mismo nombre, y entonces
+    # sus registros se mezclarían en el informe. El nodeid es único y además coincide con el
+    # nombre de la carpeta de artefactos, así que log y evidencia se cruzan sin adivinar.
+    with bound_context(test_id=request.node.nodeid, engine=resolved.engine):
         LOG_CAPTURE.start()
         instance.start()
         try:

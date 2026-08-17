@@ -68,7 +68,17 @@ def collect_evidence(
         One :class:`Evidence` per artefact that could actually be produced, in the order a
         reader wants them: the picture first, then the tree, then the replayable trace.
     """
-    destination.mkdir(parents=True, exist_ok=True)
+    try:
+        destination.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        # Sin carpeta no hay nada que recoger, pero esta función corre desde un teardown y
+        # prometió no lanzar: un disco lleno o un permiso denegado no puede sustituir el
+        # fallo real del test por otro sobre directorios.
+        log.warning(
+            "no se pudo crear la carpeta de evidencia", ruta=str(destination), error=str(error)
+        )
+        return []
+
     collected: list[Evidence] = []
 
     if _screenshot(engine, destination / SCREENSHOT_NAME):

@@ -160,7 +160,11 @@ class Element(ABC):
     def fill(self, text: str, *, timeout: float | None = None) -> None:
         """Wait for the element to be visible, then replace its value with ``text``."""
         self.wait_for(ElementState.VISIBLE, timeout=timeout)
-        log.info("escribir", elemento=str(self._locator), texto=text)
+        # Se registra cuántos caracteres, nunca cuáles: una suite e2e escribe contraseñas,
+        # tokens y datos personales en los formularios, y estos registros acaban dentro de un
+        # artefacto de CI que sobrevive semanas. Para ver el valor real está la traza, que se
+        # graba sólo cuando se pide.
+        log.info("escribir", elemento=str(self._locator), caracteres=len(text))
         self._fill(text)
 
     def select(self, value: str, *, timeout: float | None = None) -> None:

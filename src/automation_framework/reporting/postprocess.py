@@ -10,9 +10,13 @@ the tag is removed after the fact. Doing it here, rather than with a `sed` burie
 workflow, is what makes it testable and what makes a future Allure version that changes the
 markup fail *loudly* instead of silently leaving the tracker in.
 
-Usage::
+Usa sólo la biblioteca estándar, y el CI lo ejecuta **por ruta**::
 
-    python -m automation_framework.reporting.postprocess informe/index.html
+    python src/automation_framework/reporting/postprocess.py informe/index.html
+
+No como ``-m automation_framework.reporting.postprocess``: eso importaría el paquete, con lo
+que se ejecutaría ``reporting/__init__.py`` y con él ``core`` y pydantic. El job que genera el
+informe no corre tests y no tiene por qué instalar el proyecto entero para limpiar un HTML.
 """
 
 from __future__ import annotations

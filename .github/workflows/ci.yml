@@ -265,10 +265,13 @@ jobs:
       # Allure 2.32 no ofrece interruptor (`ALLURE_NO_ANALYTICS` y
       # `-Dallure.analytics.enable=false` se probaron y no hacen nada), así que se quita
       # después. Si un día Allure cambia el HTML, el paso avisa en voz alta.
+      # Se ejecuta por RUTA, no como `-m automation_framework...`: importarlo como módulo
+      # del paquete ejecutaría `reporting/__init__.py`, que arrastra core y pydantic. Por
+      # ruta sólo se carga el fichero, que es stdlib pura — y así este job no necesita ni
+      # uv ni instalar el proyecto, porque no ejecuta ningún test.
       - name: Quitar la telemetría del informe
         if: steps.hay_resultados.outputs.existe == 'true'
-        run: >
-          uv run python -m automation_framework.reporting.postprocess informe/index.html
+        run: python src/automation_framework/reporting/postprocess.py informe/index.html
 
       - name: Publicar el informe
         if: steps.hay_resultados.outputs.existe == 'true'

@@ -116,6 +116,38 @@ class TestActions:
         assert engine.find(BUTTON).text() == "Enviar"
 
 
+class TestRegistroDeAcciones:
+    """Las acciones se registran para que el informe cuente qué hizo el test.
+
+    Con un límite: el contenido de un campo no se registra jamás. Una suite e2e teclea
+    contraseñas y tokens, y estos registros acaban dentro de un artefacto de CI.
+    """
+
+    def test_el_contenido_escrito_no_llega_al_registro(self, engine, capsys):
+        engine.add(BUTTON)
+
+        engine.find(BUTTON).fill("secret_sauce")
+
+        assert "secret_sauce" not in capsys.readouterr().out
+
+    def test_se_registra_cuantos_caracteres_se_escribieron(self, engine, capsys):
+        """Basta para saber si el campo se rellenó, sin decir con qué."""
+        engine.add(BUTTON)
+
+        engine.find(BUTTON).fill("secret_sauce")
+
+        salida = capsys.readouterr().out
+        assert "escribir" in salida
+        assert "12" in salida
+
+    def test_el_clic_queda_registrado(self, engine, capsys):
+        engine.add(BUTTON)
+
+        engine.find(BUTTON).click()
+
+        assert "clic" in capsys.readouterr().out
+
+
 class TestSelect:
     """Choosing in a dropdown is its own operation, not a variant of filling.
 

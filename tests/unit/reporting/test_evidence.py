@@ -122,6 +122,17 @@ class TestNuncaLanza:
         with _EngineQueRevienta() as engine:
             assert collect_evidence(engine, tmp_path) == []
 
+    def test_sobrevive_a_un_destino_que_no_se_puede_crear(self, engine, tmp_path):
+        """Un fichero donde debería ir la carpeta: `mkdir` lanza OSError.
+
+        Era el único punto de la función que estaba fuera de un try, y corre desde un
+        teardown: habría sustituido el fallo real del test por uno sobre directorios.
+        """
+        ocupado = tmp_path / "estorbo"
+        ocupado.write_text("no soy un directorio", encoding="utf-8")
+
+        assert collect_evidence(engine, ocupado / "dentro") == []
+
     def test_sobrevive_a_una_traza_rota(self, tmp_path):
         with _EngineConTrazaRota() as engine:
             recogida = collect_evidence(engine, tmp_path)
