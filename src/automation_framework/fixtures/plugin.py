@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -19,15 +20,28 @@ from automation_framework.core.exceptions import ConfigurationError
 from automation_framework.core.log import bound_context, configure_logging, get_logger
 from automation_framework.core.registry import create_engine
 from automation_framework.engines import load_available
+from automation_framework.reporting import (
+    LogCapture,
+    allure_adapter,
+    capturing_logger_factory,
+    collect_evidence,
+)
+from automation_framework.reporting import describe as describe_evidence
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
-    from pathlib import Path
 
     from automation_framework.core.config import Settings
     from automation_framework.core.engine import Engine
 
 log = get_logger(__name__)
+
+LOG_CAPTURE = LogCapture()
+"""Copia de lo que se registra durante cada test, para adjuntarla si falla.
+
+Vive a nivel de módulo porque structlog se configura una sola vez por proceso. Con xdist cada
+worker tiene el suyo, que es justo lo que hace falta: nadie mezcla los logs de otro.
+"""
 
 _REPORTS = pytest.StashKey[dict[str, pytest.TestReport]]()
 _UNSAFE_IN_FILENAMES = re.compile(r"[^A-Za-z0-9._-]+")
@@ -87,8 +101,38 @@ def settings(request: pytest.FixtureRequest) -> Settings:
         overrides["base_url"] = url
 
     resolved = load_settings(**overrides)
-    configure_logging(level=resolved.log_level, json_output=resolved.log_json)
+    configure_logging(
+        level=resolved.log_level,
+        json_output=resolved.log_json,
+        # Sigue imprimiendo por consola; además guarda una copia por test, que es lo que
+        # acaba adjuntado al informe cuando algo falla.
+        logger_factory=capturing_logger_factory(LOG_CAPTURE),
+    )
+    _describe_environment(request.config, resolved)
     return resolved
+
+
+def _describe_environment(config: pytest.Config, settings: Settings) -> None:
+    """Record how this run was configured, next to the Allure results.
+
+    It is what lets a downloaded report answer "which browser, headless or not, against which
+    URL" — the first three questions about a failure nobody watched happen. Skipped when the
+    run is not writing Allure results.
+    """
+    results_dir = config.getoption("--alluredir", None)
+    if not results_dir:
+        return
+    allure_adapter.describe_environment(
+        {
+            "engine": settings.engine,
+            "browser": settings.browser,
+            "headless": str(settings.headless),
+            "base_url": settings.base_url or "(sin base_url)",
+            "timeout": f"{settings.timeouts.default:g}s",
+            "navigation_timeout": f"{settings.timeouts.navigation:g}s",
+        },
+        Path(results_dir),
+    )
 
 
 def _deep_merge(base: Mapping[str, Any], override: Mapping[str, Any]) -> dict[str, Any]:
@@ -171,11 +215,16 @@ def engine(
         navigation_timeout=resolved.timeouts.navigation,
     )
 
-    with bound_context(test_id=request.node.name, engine=resolved.engine):
+    # `nodeid` y no `name`: dos módulos pueden tener un test con el mismo nombre, y entonces
+    # sus registros se mezclarían en el informe. El nodeid es único y además coincide con el
+    # nombre de la carpeta de artefactos, así que log y evidencia se cruzan sin adivinar.
+    with bound_context(test_id=request.node.nodeid, engine=resolved.engine):
+        LOG_CAPTURE.start()
         instance.start()
         try:
             yield instance
         finally:
+            LOG_CAPTURE.stop()
             # La captura va ANTES de parar: una vez cerrado el navegador ya no hay nada
             # que fotografiar, y la evidencia del fallo es justo lo que hace falta.
             if resolved.capture_on_failure and _test_failed(request):
@@ -211,23 +260,18 @@ def _slugify(node_id: str) -> str:
 
 
 def _capture_evidence(engine: Engine, request: pytest.FixtureRequest, destination: Path) -> None:
-    """Save whatever the engine can produce, never raising.
+    """Collect the evidence of a failure and publish it to the report.
 
-    An exception here would replace the real failure with a confusing one from teardown, so
-    each capture is attempted independently and problems are logged instead.
+    Never raises: it runs from teardown, where an exception about the report would replace the
+    failure that the report exists to explain. `collect_evidence` already swallows what each
+    individual capture may throw; this only has to survive the unexpected.
     """
     folder = destination / _slugify(request.node.nodeid)
-
     try:
-        engine.screenshot(folder / "captura.png")
-    except Exception as error:
-        log.warning("no se pudo capturar la pantalla", error=str(error))
-
-    save_trace = getattr(engine, "save_trace", None)
-    if save_trace is None:
+        collected = collect_evidence(engine, folder, logs=LOG_CAPTURE.text())
+    except Exception as error:  # pragma: no cover - la recolección ya contiene sus fallos
+        log.warning("no se pudo recoger la evidencia", error=str(error))
         return
-    try:
-        if trace := save_trace(folder / "traza.zip"):
-            log.info("traza guardada", ruta=str(trace))
-    except Exception as error:
-        log.warning("no se pudo guardar la traza", error=str(error))
+
+    log.info("evidencia del fallo", carpeta=str(folder), recogida=describe_evidence(collected))
+    allure_adapter.attach_evidence(collected)

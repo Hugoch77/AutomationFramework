@@ -172,6 +172,7 @@ class PlaywrightEngine(Engine):
                 browser refused the URL.
         """
         self._require_started("goto")
+        log.info("navegar", url=url)
         try:
             self.page.goto(url)
         except PlaywrightTimeoutError as error:
@@ -209,6 +210,14 @@ class PlaywrightEngine(Engine):
         path.parent.mkdir(parents=True, exist_ok=True)
         self.page.screenshot(path=str(path), full_page=True)
         return path
+
+    def _dump_tree(self) -> str:
+        """The page's current HTML.
+
+        `content()` and not the original response body: what matters when a test fails is the
+        DOM as it stood at that moment, with everything the scripts had already changed.
+        """
+        return self.page.content()
 
     # --------------------------------------------------------------------- trazas ---
 
