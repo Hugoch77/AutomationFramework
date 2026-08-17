@@ -12,6 +12,10 @@ import pytest
 SRC = Path(__file__).resolve().parents[2] / "src" / "automation_framework"
 CORE = SRC / "core"
 PAGES = SRC / "pages"
+REPORTING = SRC / "reporting"
+
+# El adaptador es el único sitio donde puede aparecer un reporter concreto.
+ALLURE_ADAPTER = "allure_adapter.py"
 
 # Anything that would tie the abstract contracts to one automation technology.
 FORBIDDEN_IN_CORE = ("playwright", "pywinauto", "selenium", "appium")
@@ -76,6 +80,50 @@ def test_pages_do_not_import_engines():
 
     assert not offenders, (
         "pages/ se construye sobre core/; el engine concreto llega inyectado.\n"
+        + "\n".join(offenders)
+    )
+
+
+@pytest.mark.arch
+@pytest.mark.skipif(
+    not REPORTING.exists(), reason="reporting/ aún no existe (se crea en la Fase 4)"
+)
+def test_only_the_adapter_knows_which_reporter_is_used():
+    """Cambiar de reporter debe costar un fichero, no una búsqueda por todo el paquete.
+
+    En cuanto la recolección de evidencia importa `allure`, el formato del informe deja de ser
+    un detalle intercambiable y pasa a estar cosido al framework.
+    """
+    offenders: list[str] = []
+    for module_file in REPORTING.rglob("*.py"):
+        if module_file.name == ALLURE_ADAPTER:
+            continue
+        for imported in _imported_modules(module_file):
+            if imported.split(".")[0] in ("allure", "allure_commons"):
+                offenders.append(f"{module_file.relative_to(SRC)} importa {imported!r}")
+
+    assert not offenders, (
+        f"Sólo {ALLURE_ADAPTER} puede conocer el reporter concreto.\n" + "\n".join(offenders)
+    )
+
+
+@pytest.mark.arch
+@pytest.mark.skipif(
+    not REPORTING.exists(), reason="reporting/ aún no existe (se crea en la Fase 4)"
+)
+def test_reporting_does_not_depend_on_any_automation_library():
+    """La evidencia se pide al contrato `Engine`, no a Playwright.
+
+    Es lo que hará que la Fase 5 recoja árboles UIA sin tocar este paquete.
+    """
+    offenders: list[str] = []
+    for module_file in REPORTING.rglob("*.py"):
+        for imported in _imported_modules(module_file):
+            if imported.split(".")[0] in FORBIDDEN_IN_CORE:
+                offenders.append(f"{module_file.relative_to(SRC)} importa {imported!r}")
+
+    assert not offenders, (
+        "reporting/ debe hablar con el contrato Engine, nunca con una librería concreta.\n"
         + "\n".join(offenders)
     )
 

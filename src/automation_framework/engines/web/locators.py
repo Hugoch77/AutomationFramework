@@ -36,6 +36,7 @@ WEB_CAPABILITIES = Capabilities.of(
         Feature.TRACING,
         Feature.VIDEO,
         Feature.MULTIPLE_WINDOWS,
+        Feature.ELEMENT_TREE_DUMP,
     },
 )
 """What the web engine can resolve.

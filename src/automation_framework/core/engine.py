@@ -116,6 +116,10 @@ class Engine(ABC):
     def _screenshot(self, path: Path) -> Path:
         """Write an image of the application to ``path`` and return it."""
 
+    @abstractmethod
+    def _dump_tree(self) -> str:
+        """Return the current element hierarchy as text."""
+
     # ----------------------------------------------------------- ciclo de vida ---
 
     def start(self) -> Self:
@@ -215,6 +219,22 @@ class Engine(ABC):
         self._require_started("screenshot")
         self._require_feature(Feature.SCREENSHOT, "screenshot")
         return self._screenshot(path)
+
+    def dump_tree(self) -> str:
+        """Return the element hierarchy as text: the DOM on web, the UIA tree on desktop.
+
+        The companion to a screenshot, and often the more useful of the two. An image shows
+        that a button was missing; the tree shows whether it was absent, present but hidden,
+        or present under a name nobody expected — which is the difference between a broken
+        application and a wrong locator.
+
+        Raises:
+            EngineNotStartedError: The engine has not been started.
+            UnsupportedOperationError: This engine cannot dump its tree.
+        """
+        self._require_started("dump_tree")
+        self._require_feature(Feature.ELEMENT_TREE_DUMP, "dump_tree")
+        return self._dump_tree()
 
     # -------------------------------------------------------------------- guardas ---
 

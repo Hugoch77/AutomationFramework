@@ -285,3 +285,17 @@ class FakeEngine(Engine):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"fake-screenshot")
         return path
+
+    def _dump_tree(self) -> str:
+        """The scripted application, one line per node, children indented under their parent."""
+
+        def render(nodes: dict[Locator, list[FakeNode]], depth: int) -> list[str]:
+            lines: list[str] = []
+            for locator, siblings in nodes.items():
+                for node in siblings:
+                    state = "visible" if node.visible else "oculto"
+                    lines.append(f"{'  ' * depth}{locator} [{state}] {node.text!r}")
+                    lines.extend(render(node.children, depth + 1))
+            return lines
+
+        return "\n".join(render(self.nodes, 0))

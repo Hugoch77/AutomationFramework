@@ -62,6 +62,14 @@ jobs:
         run: >
           uv run coverage run -m pytest tests/unit tests/arch
           --junitxml=reports/junit-unit.xml
+          --alluredir=allure-results
+
+      # `always()`: el resumen importa sobre todo cuando los tests fallan.
+      - name: Resumen en el PR
+        if: always()
+        run: >
+          uv run python -m automation_framework.reporting.summary
+          reports/junit-unit.xml "Tests unitarios" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Informe de cobertura
         run: |
@@ -117,6 +125,25 @@ jobs:
         run: >
           uv run pytest -m "web and not external"
           --junitxml=reports/junit-web.xml
+          --alluredir=allure-results
+          --allure-no-capture
+
+      - name: Resumen en el PR
+        if: always()
+        run: >
+          uv run python -m automation_framework.reporting.summary
+          reports/junit-web.xml "Suite web (local)" >> "$GITHUB_STEP_SUMMARY"
+
+      # Los resultados crudos se guardan siempre: son la entrada del informe, y el job que
+      # lo construye corre después y necesita también los de una ejecución fallida.
+      - name: Publicar resultados para el informe
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: allure-results-web
+          path: allure-results/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Publicar evidencia del fallo
         if: failure()
@@ -154,6 +181,23 @@ jobs:
         run: >
           uv run pytest -m external
           --junitxml=reports/junit-external.xml
+          --alluredir=allure-results
+          --allure-no-capture
+
+      - name: Resumen en el PR
+        if: always()
+        run: >
+          uv run python -m automation_framework.reporting.summary
+          reports/junit-external.xml "Suite contra sitio público" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar resultados para el informe
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: allure-results-external
+          path: allure-results/
+          if-no-files-found: ignore
+          retention-days: 14
 
       # Este job no bloquea, así que la evidencia es la única forma de distinguir "el sitio
       # cambió el marcado" de "la red del runner iba mal" sin volver a ejecutarlo a ciegas.
@@ -167,5 +211,85 @@ jobs:
             reports/
           if-no-files-found: ignore
           retention-days: 14
+
+  informe:
+    name: Informe Allure
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Corre aunque las suites fallen: un informe que sólo existe cuando todo va bien no sirve
+    # para nada. `always()` es justamente el caso de uso.
+    if: always()
+    needs: [web, external]
+    steps:
+      - uses: actions/checkout@v5
+
+      # Los resultados vienen de los jobs anteriores; aquí no se ejecuta ningún test.
+      - name: Descargar resultados
+        uses: actions/download-artifact@v6
+        with:
+          pattern: allure-results-*
+          path: descargas
+          merge-multiple: true
+
+      - name: Comprobar que hay algo que publicar
+        id: hay_resultados
+        run: |
+          if [ -n "$(ls -A descargas 2>/dev/null)" ]; then
+            echo "existe=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "existe=false" >> "$GITHUB_OUTPUT"
+            echo "Sin resultados que publicar." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # allure-pytest sólo escribe JSON: el HTML lo genera el CLI de Allure, que es Java.
+      - name: Instalar Java
+        if: steps.hay_resultados.outputs.existe == 'true'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Instalar el CLI de Allure
+        if: steps.hay_resultados.outputs.existe == 'true'
+        run: npm install -g allure-commandline@2.32.0
+
+      # `--single-file` es lo que hace cumplible el DoD: un informe repartido en varios
+      # ficheros no se abre desde el disco (el navegador bloquea las peticiones locales),
+      # así que descargarlo no bastaría para ver la causa del fallo.
+      - name: Generar el informe
+        if: steps.hay_resultados.outputs.existe == 'true'
+        run: allure generate descargas --clean --single-file -o informe
+
+      # El informe generado incrusta Google Analytics y lo llamaría desde el navegador de
+      # quien lo abra. Es un artefacto interno de un repo privado: no manda telemetría.
+      # Allure 2.32 no ofrece interruptor (`ALLURE_NO_ANALYTICS` y
+      # `-Dallure.analytics.enable=false` se probaron y no hacen nada), así que se quita
+      # después. Si un día Allure cambia el HTML, el paso avisa en voz alta.
+      - name: Quitar la telemetría del informe
+        if: steps.hay_resultados.outputs.existe == 'true'
+        run: >
+          uv run python -m automation_framework.reporting.postprocess informe/index.html
+
+      - name: Publicar el informe
+        if: steps.hay_resultados.outputs.existe == 'true'
+        uses: actions/upload-artifact@v5
+        with:
+          name: informe-allure
+          path: informe/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Enlazar el informe en el resumen
+        if: steps.hay_resultados.outputs.existe == 'true'
+        run: |
+          {
+            echo "## Informe Allure"
+            echo
+            echo "Descárgalo desde los artifacts de esta ejecución (\`informe-allure\`)"
+            echo "y abre \`index.html\`: es un único fichero, se ve sin servidor ni nada instalado."
+            echo
+            echo "Cada test fallido lleva adjuntos su captura, el árbol de elementos,"
+            echo "el registro correlacionado y la traza."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # La suite desktop vive en desktop.yml (self-hosted runner) y se activa en la Fase 6.

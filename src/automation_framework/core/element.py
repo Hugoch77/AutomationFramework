@@ -22,12 +22,22 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Self, assert_never
 
 from automation_framework.core.exceptions import ElementNotFoundError, WaitTimeoutError
+from automation_framework.core.log import get_logger
 from automation_framework.core.waits import DEFAULT_POLL_INTERVAL, DEFAULT_TIMEOUT, wait_until
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from automation_framework.core.locator import Locator
+
+
+log = get_logger(__name__)
+"""Acciones registradas a nivel INFO.
+
+Un test hace unas pocas: el volumen es bajo y el valor alto, porque lo que convierte un fallo
+en diagnosticable es saber qué se hizo justo antes. pytest captura la salida y sólo la enseña
+cuando algo falla, así que una ejecución en verde no imprime nada de esto.
+"""
 
 
 class ElementState(StrEnum):
@@ -144,11 +154,13 @@ class Element(ABC):
     def click(self, *, timeout: float | None = None) -> None:
         """Wait for the element to be visible, then click it."""
         self.wait_for(ElementState.VISIBLE, timeout=timeout)
+        log.info("clic", elemento=str(self._locator))
         self._click()
 
     def fill(self, text: str, *, timeout: float | None = None) -> None:
         """Wait for the element to be visible, then replace its value with ``text``."""
         self.wait_for(ElementState.VISIBLE, timeout=timeout)
+        log.info("escribir", elemento=str(self._locator), texto=text)
         self._fill(text)
 
     def select(self, value: str, *, timeout: float | None = None) -> None:
@@ -163,6 +175,7 @@ class Element(ABC):
             ElementError: The element is not a list of choices, or has no such option.
         """
         self.wait_for(ElementState.VISIBLE, timeout=timeout)
+        log.info("seleccionar", elemento=str(self._locator), opcion=value)
         self._select(value)
 
     def text(self, *, timeout: float | None = None) -> str:

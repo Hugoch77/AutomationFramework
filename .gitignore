@@ -34,6 +34,8 @@ videos/
 test-results/
 allure-results/
 allure-report/
+# Informe de un solo fichero que genera el CI (`allure generate --single-file`).
+informe/
 playwright-report/
 
 # --- Documentación y tooling de trabajo local (no se versiona) ---
